@@ -114,7 +114,7 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 ## Completed
 
-- **"Bis zum Gehalt" (v11)**: the overview estimates the next payday and recurring debits, uses the current tracked card balance for linked card settlements, shows the remaining free amount, and warns when a forecast debit may overdraw its account.
+- **"Bis zum Gehalt" (v12)**: the overview estimates the next payday and recurring debits, uses the current tracked card balance for linked settlements and unlinked card debits with a matching issuer, shows the remaining free amount, and warns when a forecast debit may overdraw its account.
 
 ## Open tasks (in the owner's order of priority)
 

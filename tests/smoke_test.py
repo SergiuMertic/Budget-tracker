@@ -152,7 +152,7 @@ def main():
             check('backup restores everything', len(after['tx']) == len(b['tx']) and after['bal'] == b['bal'] and after['opts'] == b['opts'])
             os.remove(path)
 
-            # "Bis zum Gehalt": recurring rent and a linked card settlement use synthetic data only
+            # "Bis zum Gehalt": recurring rent and an unlinked Amex debit use synthetic data only
             page.evaluate("""() => {
                 const now = new Date();
                 const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
@@ -174,9 +174,7 @@ def main():
                     const billDate = month + '-' + String(dueDay).padStart(2, '0');
                     add({ d: billDate, a: -50000, n: 'Example Landlord GmbH', p: 'Monthly rent', acc: 'Example Checking', c: 'wohnen' });
                     add({ d: billDate, a: -2000, n: 'REWE', p: 'Card purchase', t: 'KARTENZAHLUNG', acc: 'Example Checking', c: 'lebensmittel' });
-                    const link = 'example-card-' + offset;
-                    add({ d: billDate, a: -25000, n: 'American Express', p: 'Card settlement', acc: 'Example Checking', c: 'umbuchung', src: 't', l: link });
-                    add({ d: billDate, a: 25000, n: 'Example Checking', p: 'Card settlement', acc: 'American Express', c: 'umbuchung', src: 't', l: link });
+                    add({ d: billDate, a: -25000, n: 'American Express Europe S.A. (Germany branch)', p: 'Card settlement', t: 'LASTSCHRIFT', acc: 'Example Checking', c: 'kredit' });
                 }
                 localStorage.setItem('budget.data.v1', JSON.stringify(data));
             }""")
@@ -189,7 +187,7 @@ def main():
                 warning: paydayWarning.textContent,
                 rows: Array.from(paydayList.querySelectorAll('li')).map((li) => li.innerText)
             })""")
-            check('linked card settlement uses the current card balance', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row for row in forecast['rows']), forecast)
+            check('unlinked Amex debit uses the current card balance', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row for row in forecast['rows']), forecast)
             check('free available reserves bills and warns about a shortfall', abs(num(forecast['free']) + 323.45) < 0.005 and 'reicht voraussichtlich nicht' in forecast['warning'] and 'Rücklastschrift' in forecast['warning'], forecast)
 
             # Version shown and service worker registered

@@ -1,6 +1,6 @@
 // Service worker: keeps the app working without internet.
 // Bump CACHE when any file changes so phones pick up the new version.
-const CACHE = 'budget-v11';
+const CACHE = 'budget-v12';
 const ASSETS = [
   "./",
   "./index.html",

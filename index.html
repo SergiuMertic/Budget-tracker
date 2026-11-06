@@ -781,7 +781,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '11';
+  const APP_VERSION = '12';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2063,6 +2063,26 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const other = partnerOf(t);
     return other && isCardAcc(other.acc) ? other.acc : '';
   }
+  function cardBrand(text) {
+    const s = normText(text);
+    if (/\b(AMERICAN EXPRESS|AMEX)\b/.test(s)) return 'amex';
+    if (/\b(MASTERCARD|MASTER CARD)\b/.test(s)) return 'mastercard';
+    if (/\b(VISA)\b/.test(s)) return 'visa';
+    if (/\b(KLARNA)\b/.test(s)) return 'klarna';
+    if (/\b(ADVANZIA)\b/.test(s)) return 'advanzia';
+    if (/\b(ANYFIN)\b/.test(s)) return 'anyfin';
+    if (/\b(RIVERTY)\b/.test(s)) return 'riverty';
+    if (/\b(BARCLAY|BARCLAYCARD)\b/.test(s)) return 'barclay';
+    return '';
+  }
+  function cardAccountForPayment(t, cardAccounts) {
+    const linked = linkedCardAccount(t);
+    if (linked) return linked;
+    const brand = cardBrand([t.n, t.p, t.t].join(' '));
+    if (!brand) return '';
+    const matching = cardAccounts.filter((a) => cardBrand(a.name) === brand);
+    return matching.length === 1 ? matching[0].name : '';
+  }
   function linkedCardSettlement(t) {
     return !!linkedCardAccount(t);
   }
@@ -2078,12 +2098,13 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const recent = [-3, -2, -1].map((n) => shiftMonth(current, n));
     const included = recent.concat([current]);
     const groups = {};
+    const cardAccounts = accounts().filter((a) => isCardAcc(a.name));
     S.tx.forEach((t) => {
       const period = periodOf(t.d);
       if (included.indexOf(period) < 0 || !isRecurringDebit(t)) return;
       const payee = recurringPayee(t);
       if (!payee) return;
-      const cardAccount = linkedCardAccount(t);
+      const cardAccount = cardAccountForPayment(t, cardAccounts);
       const key = t.acc + '|' + payee + '|' + cardAccount;
       const group = groups[key] || (groups[key] = { payee: clip(t.n || t.p, 80), account: t.acc, cardAccount: cardAccount, periods: {}, card: false });
       const entry = group.periods[period] || (group.periods[period] = { amount: 0, dates: [] });
