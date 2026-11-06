@@ -14,6 +14,7 @@ A small offline web app to see where your money goes. Import your bank statement
 - Money moved into a C24 pocket (Tagesgeld) counts as saving; transfers to accounts in your own name are recognised from the name on your statements, which stays on your device
 - Your own rules: change a category once and let the app remember it for every transaction with the same text
 - Monthly overview: income, spending, saving and what is left, per category with progress bars
+- Months can run from payday to payday ("Ab Gehalt" under Daten): each month starts on the day your main salary actually arrived, so salary and the fixed costs it pays are in the same month
 - Monthly budgets and a savings goal, with a one-tap suggestion from your average of the last 3 months
 - 6-month history chart
 - Add cash transactions by hand; an option makes ATM withdrawals not count as spending, so cash is not counted twice

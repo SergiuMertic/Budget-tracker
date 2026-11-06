@@ -192,6 +192,7 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-h
 .legend .ks::before { background: var(--save-bar); }
 .legend .v { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero-meta { font-size: 14px; color: var(--muted); }
+.hero-range { font-size: 14px; color: var(--muted); margin-top: -6px; }
 
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow);
@@ -468,6 +469,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
             <span class="hero-label" id="heroLabel">Übrig</span>
             <span class="hero-count num" id="heroCount">0 Umsätze</span>
           </div>
+          <div class="hero-range num" id="heroRange" hidden></div>
           <div class="hero-big num" id="heroBig">0,00 €</div>
           <div class="split" id="heroSplit" aria-hidden="true"><i class="o"></i><i class="s"></i><i class="r"></i></div>
           <div class="legend">
@@ -617,6 +619,15 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     <p class="empty" id="ruleEmpty">Noch keine eigenen Regeln. Tippe in Umsätze auf einen Eintrag, wähle die Kategorie und lass dir die Zuordnung merken.</p>
 
     <div class="card">
+      <h2>Monat</h2>
+      <div class="seg" role="radiogroup" aria-label="Wann ein Monat beginnt" id="periodSeg">
+        <button type="button" role="radio" data-period="calendar" aria-checked="true">Kalendermonat</button>
+        <button type="button" role="radio" data-period="payday" aria-checked="false">Ab Gehalt</button>
+      </div>
+      <p class="card-text" id="periodInfo"></p>
+    </div>
+
+    <div class="card">
       <h2>Bargeld</h2>
       <label class="check"><input type="checkbox" id="cashManual"> <span>Ich trage Barzahlungen einzeln ein. Abhebungen am Automaten zählen dann nicht als Ausgabe, damit nichts doppelt gezählt wird.</span></label>
     </div>
@@ -717,7 +728,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '5';
+  const APP_VERSION = '6';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -852,7 +863,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     budgets: {},     // category id -> cents per month
     owner: '',       // account holder name from the statements (stays on this device)
     bal: {},         // account name -> { d, a }: balance at the end of day d (cents)
-    opts: { cashManual: false },
+    opts: { cashManual: false, payday: false },
     rules: [],       // { id, k: keyword (normalized), c: category id }
     cats: [],        // custom categories
     month: thisMonth(),
@@ -993,7 +1004,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   function cleanData(raw) {
-    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false }, owner: '' };
+    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false }, owner: '' };
     if (!raw || typeof raw !== 'object') return out;
     const ids = {};
     (Array.isArray(raw.cats) ? raw.cats : []).forEach((c, i) => {
@@ -1038,13 +1049,13 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         if (isFinite(a) && Math.abs(a) < 1e11) out.bal[name] = { d: b.d, a: a };
       });
     }
-    if (raw.opts && typeof raw.opts === 'object') out.opts.cashManual = raw.opts.cashManual === true;
+    if (raw.opts && typeof raw.opts === 'object') { out.opts.cashManual = raw.opts.cashManual === true; out.opts.payday = raw.opts.payday === true; }
     out.owner = clip(raw.owner, 60);
     return out;
   }
   function loadData(clean) {
     S.tx = clean.tx; S.budgets = clean.budgets; S.rules = clean.rules; S.cats = clean.cats;
-    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false }; S.owner = clean.owner || '';
+    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false }; S.owner = clean.owner || '';
     migrateAccounts();
     rebuildCats();
     rebuildRules();
@@ -1073,12 +1084,58 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (ob && (!S.bal[NEW] || ob.d > S.bal[NEW].d)) S.bal[NEW] = ob;
   }
 
+  /* ---------- Months: calendar months, or from payday to payday ----------
+     With "Ab Gehalt", a month starts on the day the main salary arrives: the largest payment in
+     "Gehalt & Lohn" on or after the 15th of a month starts the next month. Months without a
+     detected salary start on your usual salary day. */
+  let PERIOD = { on: false, starts: {}, day: 1, cache: {} };
+  function buildPeriods() {
+    PERIOD = { on: false, starts: {}, day: 1, cache: {}, last: '' };
+    if (!S.opts.payday) return;
+    const best = {};
+    S.tx.forEach((t) => {
+      if (t.c !== 'gehalt' || t.a <= 0 || Number(t.d.slice(8, 10)) < 15) return;
+      const m = t.d.slice(0, 7);
+      if (!best[m] || t.a > best[m].a) best[m] = t;
+    });
+    const keys = Object.keys(best).sort();
+    if (!keys.length) return;
+    const days = keys.map((m) => Number(best[m].d.slice(8, 10))).sort((a, b) => a - b);
+    PERIOD.on = true;
+    PERIOD.day = days[Math.floor(days.length / 2)];
+    PERIOD.last = best[keys[keys.length - 1]].d;
+    keys.forEach((m) => { PERIOD.starts[shiftMonth(m, 1)] = best[m].d; });
+  }
+  function periodStart(label) {
+    if (!PERIOD.on) return label + '-01';
+    return PERIOD.starts[label] || shiftMonth(label, -1) + '-' + pad(Math.min(PERIOD.day, 28));
+  }
+  function periodOf(iso) {
+    if (!PERIOD.on) return iso.slice(0, 7);
+    if (PERIOD.cache[iso]) return PERIOD.cache[iso];
+    const m = iso.slice(0, 7), next = shiftMonth(m, 1);
+    const r = iso >= periodStart(next) ? next : iso >= periodStart(m) ? m : shiftMonth(m, -1);
+    PERIOD.cache[iso] = r;
+    return r;
+  }
+  const currentPeriod = () => periodOf(today());
+  function periodRange(label) {
+    const end = fromISO(periodStart(shiftMonth(label, 1)));
+    end.setDate(end.getDate() - 1);
+    return { from: periodStart(label), to: isoDay(end) };
+  }
+  function rangeText(label) {
+    const r = periodRange(label);
+    const cur = label === currentPeriod();
+    return fDate.format(fromISO(r.from)) + ' bis ' + (cur ? 'heute' : fDate.format(fromISO(r.to)));
+  }
+
   /* ---------- Numbers ---------- */
   function monthStats(m) {
     const by = {};
     let inc = 0, out = 0, sav = 0, count = 0, open = 0;
     S.tx.forEach((t) => {
-      if (t.d.slice(0, 7) !== m) return;
+      if (periodOf(t.d) !== m) return;
       count++;
       by[t.c] = (by[t.c] || 0) + t.a;
       const k = kindOf(t.c);
@@ -1091,13 +1148,13 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
   function monthsWithData() {
     const m = {};
-    S.tx.forEach((t) => { m[t.d.slice(0, 7)] = true; });
+    S.tx.forEach((t) => { m[periodOf(t.d)] = true; });
     return Object.keys(m).sort();
   }
-  function latestMonth() { const ms = monthsWithData(); return ms.length ? ms[ms.length - 1] : thisMonth(); }
+  function latestMonth() { const ms = monthsWithData(); return ms.length ? ms[ms.length - 1] : currentPeriod(); }
   // Average per category over up to 3 recent complete months (the running month counts only if nothing else exists)
   function averages() {
-    let ms = monthsWithData().filter((m) => m < thisMonth());
+    let ms = monthsWithData().filter((m) => m < currentPeriod());
     if (!ms.length) ms = monthsWithData();
     ms = ms.slice(-3);
     const sum = {};
@@ -1470,7 +1527,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const last = added.reduce((m, t) => (t.d > m ? t.d : m), '');
     S.imp = null;
     $('csvInput').value = '';
-    if (last) S.month = last.slice(0, 7);
+    buildPeriods();
+    if (last) S.month = periodOf(last);
     importMsg(added.length ? txWord(added.length) + ' aus ' + imp.fileName + ' importiert.'
       : balUpd.length ? 'Kontostand aktualisiert. Alle Umsätze waren schon vorhanden.'
       : imp.kind === 'pdf' ? 'Alle Umsätze aus diesen Kontoauszügen sind schon vorhanden.' : 'Alle Umsätze aus dieser Datei sind schon vorhanden.');
@@ -1740,7 +1798,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function renderMonthbars() {
     const label = fMonth.format(monthDate(S.month));
     $$('.mlabel').forEach((e) => { e.textContent = label; });
-    $$('.mnow').forEach((e) => { e.hidden = S.month !== thisMonth(); });
+    $$('.mnow').forEach((e) => { e.hidden = S.month !== currentPeriod(); });
   }
 
   function renderOverview() {
@@ -1755,6 +1813,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('heroBig').textContent = fmt(left);
     $('heroBig').classList.toggle('neg', left < 0);
     $('heroCount').textContent = txWord(st.count);
+    $('heroRange').hidden = !PERIOD.on;
+    if (PERIOD.on) $('heroRange').textContent = rangeText(S.month);
     $('sumIn').textContent = fmt0(st.inc);
     $('sumOut').textContent = fmt0(st.out);
     $('sumSave').textContent = fmt0(st.sav);
@@ -1931,7 +1991,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const searching = q.length > 0;
     $('txMonthbar').hidden = searching;
     let list = S.tx.filter((t) => {
-      if (!searching && t.d.slice(0, 7) !== S.month) return false;
+      if (!searching && periodOf(t.d) !== S.month) return false;
       if (S.filterCat === '_open' && t.src !== 'f') return false;
       if (S.filterCat && S.filterCat !== '_open' && t.c !== S.filterCat) return false;
       if (S.filterAcc && t.acc !== S.filterAcc) return false;
@@ -1941,7 +2001,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     list.sort((a, b) => b.d.localeCompare(a.d) || (a.a - b.a));
     const total = list.reduce((s, t) => s + (kindOf(t.c) === 'skip' ? 0 : t.a), 0);
     const limit = 400;
-    $('txCount').textContent = txWord(list.length) + (searching ? ' in allen Monaten' : '') + (list.length > limit ? ' (die neuesten ' + limit + ')' : '');
+    $('txCount').textContent = txWord(list.length) + (searching ? ' in allen Monaten' : PERIOD.on ? ' · ' + rangeText(S.month) : '') + (list.length > limit ? ' (die neuesten ' + limit + ')' : '');
     $('txSum').textContent = list.length ? 'Summe ' + fmtS(total) : '';
     if (list.length > limit) list = list.slice(0, limit);
 
@@ -2099,6 +2159,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     al.hidden = !accs.length;
     $('accountEmpty').hidden = !!accs.length;
     $('cashManual').checked = !!S.opts.cashManual;
+    $$('#periodSeg button').forEach((b) => b.setAttribute('aria-checked', String((b.getAttribute('data-period') === 'payday') === !!S.opts.payday)));
+    $('periodInfo').textContent = !S.opts.payday
+      ? 'Ein Monat läuft vom 1. bis zum letzten Tag. Mit „Ab Gehalt“ läuft er vom Gehaltseingang bis zum Tag vor dem nächsten Gehalt, damit Gehalt und Fixkosten im selben Monat stehen.'
+      : PERIOD.on
+        ? 'Ein Monat läuft vom Gehaltseingang bis zum Tag vor dem nächsten Gehalt. Als Gehalt zählt die größte Zahlung in „Gehalt & Lohn“ ab dem 15. eines Monats, zuletzt am ' + fDate.format(fromISO(PERIOD.last)) + '. Der Monat ist nach dem Monat benannt, für den das Gehalt reicht.'
+        : 'Noch kein Gehalt ab dem 15. eines Monats erkannt. Bis dahin gelten Kalendermonate.';
 
     // Rules
     const rl = $('ruleList');
@@ -2222,6 +2288,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   function render() {
+    buildPeriods();
     renderTabs();
     renderMonthbars();
     renderOverview();
@@ -2365,7 +2432,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('addAmt').value = '';
     $('addName').value = '';
     const t = today();
-    $('addDate').value = S.month === thisMonth() ? t : S.month + '-01';
+    $('addDate').value = periodOf(t) === S.month ? t : periodStart(S.month);
     $('addAcc').value = 'Bargeld';
     $('addErr').hidden = true;
     fillAddCats();
@@ -2393,6 +2460,15 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function renderCashHint() {
     $('addCashHint').hidden = S.opts.cashManual || addKind !== 'out' || !/^\s*(bargeld|bar|cash|portemonnaie|geldbeutel)\s*$/i.test($('addAcc').value);
   }
+  function setPayday(on) {
+    S.opts.payday = !!on;
+    save();
+    buildPeriods();
+    S.month = currentPeriod();
+    if (S.tx.length && !S.tx.some((t) => periodOf(t.d) === S.month)) S.month = latestMonth();
+    render();
+    toast(on ? 'Monate laufen jetzt von Gehalt zu Gehalt.' : 'Monate laufen jetzt vom 1. bis zum Monatsende.');
+  }
   function setCashManual(on) {
     S.opts.cashManual = !!on;
     rebuildCats();
@@ -2416,7 +2492,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     S.tx.push(tx);
     if (!save()) { S.tx.pop(); return; }
     hideDialog($('addSheet'));
-    S.month = d.slice(0, 7);
+    buildPeriods();
+    S.month = periodOf(d);
     render();
     toast(fmtS(tx.a) + ' gespeichert', 'Rückgängig', () => { S.tx = S.tx.filter((x) => x.id !== id); save(); render(); });
   }
@@ -2545,6 +2622,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const before = { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts, owner: S.owner };
       loadData(clean);
       if (!save()) { loadData(before); return; }
+      buildPeriods();
       S.month = latestMonth();
       render();
       backupMsg('Backup geladen: ' + txWord(S.tx.length) + '.');
@@ -2614,6 +2692,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   $('addCat').addEventListener('change', () => { addCatTouched = true; });
   $('addCashOn').addEventListener('click', () => { setCashManual(true); renderCashHint(); fillAddCats(); });
   $('cashManual').addEventListener('change', (e) => setCashManual(e.target.checked));
+  $$('#periodSeg button').forEach((b) => b.addEventListener('click', () => {
+    const on = b.getAttribute('data-period') === 'payday';
+    if (on !== !!S.opts.payday) setPayday(on);
+  }));
   $('balSave').addEventListener('click', saveBal);
   $('balRemove').addEventListener('click', removeBal);
   $('balCancel').addEventListener('click', () => hideDialog($('balSheet')));
@@ -2665,7 +2747,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 
   /* ---------- Start ---------- */
   loadData(cleanData(readLS(DATA)));
-  if (S.tx.length && !S.tx.some((t) => t.d.slice(0, 7) === S.month)) S.month = latestMonth();
+  buildPeriods();
+  S.month = currentPeriod();
+  if (S.tx.length && !S.tx.some((t) => periodOf(t.d) === S.month)) S.month = latestMonth();
   render();
 
 })();
