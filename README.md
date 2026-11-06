@@ -5,6 +5,8 @@ A small offline web app to see where your money goes. Import your bank statement
 ## Features
 
 - Import C24 Bank PDF statements (Kontoauszüge) directly, several at once; the totals are checked against each statement's summary
+- Import American Express activity CSVs (short and detailed format): purchases land in their categories, payments to the card are matched with the bank account and not counted twice
+- Credit cards show what you owe; the overview shows "Kreditkarten offen" and what is left after paying them
 - Import CSV exports from German online banking (semicolon or comma, German or English number format, UTF-8 or Windows encoding)
 - Columns are detected automatically from the header row; if a bank uses unusual names, you can pick the columns yourself in the preview
 - Duplicates are skipped, so you can import overlapping date ranges again; pending (vorgemerkt) transactions are left out until they are booked

@@ -751,7 +751,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '8';
+  const APP_VERSION = '9';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -804,6 +804,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     card: svg('<rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>'),
     plane: svg('<path d="M10.5 21l1.5-1.5v-5l7 3v-2l-7-5V4.5a1.5 1.5 0 0 0-3 0v6l-7 5v2l7-3v5L10.5 21z" transform="translate(1.5 0)"/>'),
     people: svg('<circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9.5" r="2.5"/><path d="M15.8 14.2c2.9-.4 5.2 1.6 5.2 4.8"/>'),
+    child: svg('<circle cx="12" cy="6" r="2.6"/><path d="M8.5 21v-4.5L6.5 13l2.8-3.5h5.4l2.8 3.5-2 3.5V21"/>'),
     wallet: svg('<path d="M4 7.5h14.5a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M4 7.5l11-3v3"/><circle cx="16" cy="13.75" r="1.2"/>'),
     x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     chev: svg('<path d="M9 6l6 6-6 6"/>')
@@ -827,6 +828,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     { id: 'kredit', name: 'Kreditkarte & Raten', kind: 'out', color: '#9C2F45', icon: 'card' },
     { id: 'reisen', name: 'Reisen & Urlaub', kind: 'out', color: '#2E9BD6', icon: 'plane' },
     { id: 'familie', name: 'Familie & Freunde', kind: 'out', color: '#7C8B2E', icon: 'people' },
+    { id: 'kinder', name: 'Kinder & Baby', kind: 'out', color: '#E07FA6', icon: 'child' },
     { id: 'eigene', name: 'Eigene Konten (Revolut usw.)', kind: 'out', color: '#3F5F8F', icon: 'wallet' },
     { id: 'gebuehren', name: 'Gebühren & Steuern', kind: 'out', color: '#71808C', icon: 'receipt' },
     { id: 'sonstiges', name: 'Sonstiges', kind: 'out', color: '#979EA3', icon: 'dots' },
@@ -852,19 +854,20 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     ['einnahmen', '+', 'KINDERGELD', 'FAMILIENKASSE', 'ZINSEN', 'ZINSGUTSCHRIFT', 'HABENZINSEN', 'SMILY', 'CASHBACK', 'PRAEMIE', 'FINANZAMT', 'STEUERERSTATTUNG', 'ERSTATTUNG', 'INCENTIVE'],
     ['handy', '', 'ALDI TALK', 'TELEKOM', 'VODAFONE', 'O2', 'TELEFONICA', '1&1', '1UND1', 'CONGSTAR', 'FREENET', 'MOBILCOM', 'WINSIM', 'FRAENK', 'PYUR', 'DEUTSCHE GLASFASER', 'NETCOLOGNE', 'LEBARA', 'LYCAMOBILE'],
     ['kredit', '', 'AMERICAN EXPRESS', 'AMEX', 'ANYFIN', 'KLARNA CARD', 'ADVANZIA', 'HANSEATIC BANK', 'BARCLAYS', 'TF BANK', 'SANTANDER CONSUMER', 'RATENKREDIT', 'KREDITRATE', 'DARLEHEN', 'TILGUNG'],
-    ['reisen', '', 'RYANAIR', 'EUROWINGS', 'LUFTHANSA', 'WIZZ', 'WIZZAIR', 'EASYJET', 'CONDOR', 'TUIFLY', 'TUI', 'BOOKING.COM', 'AIRBNB', 'HOTEL', 'HOTELS', 'HOTELVERGLEICH', 'RADISSON', 'HILTON', 'MARRIOTT', 'IBIS', 'MOTEL ONE', 'AIRPORT', 'FLUGHAFEN', 'EXPEDIA', 'OPODO', 'HOLIDAYCHECK', 'FERIENWOHNUNG'],
-    ['abos', '', 'AMAZON PRIME', 'PRIME VIDEO', 'NETFLIX', 'SPOTIFY', 'DISNEY', 'APPLE.COM', 'APPLE COM BILL', 'ITUNES', 'GOOGLE PLAY', 'GOOGLE YOUTUBE', 'YOUTUBE', 'YOUTUBEPREMIUM', 'YOUTUBE PREMIUM', 'GOOGLE ONE', 'AMZNPRIME', 'PROTV', 'PRO TV', 'VOYO', 'SCHUFA', 'CONTENT PAKET', 'DAZN', 'SKY', 'AUDIBLE', 'ANTHROPIC', 'CLAUDE.AI', 'OPENAI', 'CHATGPT', 'MICROSOFT', 'ADOBE', 'PLAYSTATION', 'NINTENDO', 'STEAM', 'XBOX', 'PATREON', 'TWITCH', 'CANVA', 'DROPBOX', 'ICLOUD', 'WAIPU', 'JOYN', 'PARAMOUNT', 'CRUNCHYROLL', 'DEEZER', 'TIDAL', 'ELEVENLABS', 'MUBI', 'DISCOVERYPLUS', 'DISCOVERY'],
+    ['reisen', '', 'RYANAIR', 'EUROWINGS', 'LUFTHANSA', 'WIZZ', 'WIZZAIR', 'EASYJET', 'CONDOR', 'TUIFLY', 'TUI', 'BOOKING.COM', 'AIRBNB', 'HOTEL', 'HOTELS', 'HOTELVERGLEICH', 'RADISSON', 'HILTON', 'MARRIOTT', 'IBIS', 'MOTEL ONE', 'AIRPORT', 'FLUGHAFEN', 'EXPEDIA', 'OPODO', 'HOLIDAYCHECK', 'FERIENWOHNUNG', 'NOLEGGIARE', 'MIETWAGEN', 'AUTOVERMIETUNG', 'EUROPCAR', 'HERTZ', 'AVIS', 'ENTERPRISE RENT'],
+    ['kinder', '', 'LILLYDOO', 'BABYPARK', 'BABY ONE', 'BABYONE', 'PAMPERS', 'MYTOYS', 'JAKO O', 'SMYTHS', 'SMYTHS TOYS', 'KITA', 'KINDERGARTEN', 'BABYMARKT'],
+    ['abos', '', 'AMAZON PRIME', 'PRIME VIDEO', 'NETFLIX', 'SPOTIFY', 'DISNEY', 'APPLE.COM', 'APPLE COM BILL', 'ITUNES', 'GOOGLE PLAY', 'GOOGLE YOUTUBE', 'YOUTUBE', 'YOUTUBEPREMIUM', 'YOUTUBE PREMIUM', 'GOOGLE ONE', 'AMZNPRIME', 'PROTV', 'PRO TV', 'VOYO', 'SCHUFA', 'CONTENT PAKET', 'DAZN', 'SKY', 'AUDIBLE', 'ANTHROPIC', 'CLAUDE.AI', 'OPENAI', 'CHATGPT', 'MICROSOFT', 'ADOBE', 'PLAYSTATION', 'NINTENDO', 'STEAM', 'XBOX', 'PATREON', 'TWITCH', 'CANVA', 'DROPBOX', 'ICLOUD', 'WAIPU', 'JOYN', 'PARAMOUNT', 'CRUNCHYROLL', 'DEEZER', 'TIDAL', 'ELEVENLABS', 'MUBI', 'DISCOVERYPLUS', 'DISCOVERY', 'STRAVA', 'OPENROUTER', 'FINANZFLUSS', 'PINTEREST', 'WIX', 'WIX.COM', 'SURFSHARK', 'NORDVPN'],
     ['wohnen', '', 'MIETE', 'KALTMIETE', 'WARMMIETE', 'NEBENKOSTEN', 'HAUSGELD', 'VONOVIA', 'ANNINGTON', 'VIVAWEST', 'OSTROM', 'LEG IMMOBILIEN', 'LEG WOHNEN', 'STADTWERKE', 'E.ON', 'EON', 'VATTENFALL', 'RWE', 'EWE', 'ENBW', 'GELSENWASSER', 'ENTEGA', 'TIBBER', 'OCTOPUS ENERGY', 'LICHTBLICK', 'YELLO', 'EPRIMO', 'STROM', 'BEITRAGSSERVICE', 'RUNDFUNK', 'ARD ZDF'],
     ['lebensmittel', '', 'REWE', 'EDEKA', 'E CENTER', 'ALDI', 'LIDL', 'KAUFLAND', 'NETTO', 'PENNY', 'NORMA', 'GLOBUS', 'MARKTKAUF', 'TEGUT', 'HIT', 'NAH UND GUT', 'BIOMARKT', 'DENNS', 'ALNATURA', 'BAECKEREI', 'BAECKER', 'BACKSTUBE', 'BACKSHOP', 'METZGEREI', 'FLEISCHEREI', 'GETRAENKE', 'TRINKGUT', 'HOL AB', 'PICNIC', 'KNUSPR', 'TGTG', 'TOO GOOD TO GO', 'IPER', 'IPERAL', 'ALCAMPO', 'BASKO', 'ALBERT HEIJN', 'JUMBO', 'MERCADONA', 'CARREFOUR', 'CONAD', 'ESSELUNGA', 'MIX MARKT', 'MIXMARKT', 'LEBENSMITTEL'],
     ['drogerie', '', 'DROGERIE', 'DM', 'ROSSMANN', 'BUDNI', 'APOTHEKE', 'DOCMORRIS', 'SHOP APOTHEKE', 'ARZT', 'ZAHNARZT', 'PRAXIS', 'OPTIK', 'FIELMANN', 'APOLLO', 'PHYSIOTHERAPIE', 'KRANKENKASSE', 'AOK', 'BARMER', 'MISTER SPEX', 'KIKO'],
-    ['essen', '', 'LIEFERANDO', 'UBER EATS', 'WOLT', 'MCDONALDS', 'MC DONALDS', 'BURGER KING', 'KFC', 'SUBWAY', 'STARBUCKS', 'VAPIANO', 'NORDSEE', 'PIZZA', 'PIZZERIA', 'RESTAURANT', 'IMBISS', 'DOENER', 'KEBAB', 'GRILL', 'CAFE', 'BISTRO', 'SUSHI', 'DOMINOS', 'CALL A PIZZA', 'BACKWERK', 'RISTORANTE', 'TRATTORIA', 'OSTERIA', 'KEBAP', 'DOENERS', 'BURGER', 'BURGUER', 'SMASHBURGER', 'GELATO', 'EISCAFE', 'EISDIELE', 'TACO', 'KITCHEN', 'GASTRONOMIE', 'GASTRO'],
-    ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE', 'WASCHANLAGE', 'WASCHPARK', 'PRIMWASH', 'HAUPTZOLLAMT', 'HZA', 'PACE TELEMATICS', 'TOTAL SERVICE', 'AUTODOC', 'MR WASH', 'CARWASH', 'CAR WASH', 'PARKING', 'AUTOPARK'],
+    ['essen', '', 'LIEFERANDO', 'UBER EATS', 'WOLT', 'MCDONALDS', 'MC DONALDS', 'BURGER KING', 'KFC', 'SUBWAY', 'STARBUCKS', 'VAPIANO', 'NORDSEE', 'PIZZA', 'PIZZERIA', 'RESTAURANT', 'IMBISS', 'DOENER', 'KEBAB', 'GRILL', 'CAFE', 'BISTRO', 'SUSHI', 'DOMINOS', 'CALL A PIZZA', 'BACKWERK', 'RISTORANTE', 'TRATTORIA', 'OSTERIA', 'KEBAP', 'DOENERS', 'BURGER', 'BURGUER', 'SMASHBURGER', 'GELATO', 'EISCAFE', 'EISDIELE', 'TACO', 'KITCHEN', 'GASTRONOMIE', 'GASTRO', 'COFFEE', 'CHURRITO'],
+    ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE', 'WASCHANLAGE', 'WASCHPARK', 'PRIMWASH', 'HAUPTZOLLAMT', 'HZA', 'PACE TELEMATICS', 'TOTAL SERVICE', 'AUTODOC', 'MR WASH', 'CARWASH', 'CAR WASH', 'PARKING', 'AUTOPARK', 'PACE PAY', 'IMOCARWASH', 'VANMOOF'],
     ['versicherung', '', 'VERSICHERUNG', 'VERSICHERUNGEN', 'RECHTSSCHUTZ', 'ADAM RIESE', 'BAVARIADIREKT', 'HUK', 'HUK24', 'HUK COBURG', 'ALLIANZ', 'ERGO', 'AXA', 'R+V', 'DEVK', 'GENERALI', 'COSMOSDIREKT', 'HANSEMERKUR', 'BARMENIA', 'GOTHAER', 'SIGNAL IDUNA', 'WGV', 'VHV', 'ZURICH', 'HDI', 'ARAG', 'PROVINZIAL', 'LVM', 'NUERNBERGER', 'DEBEKA', 'CONTINENTALE'],
-    ['shopping', '', 'AMAZON', 'AMZN', 'ZALANDO', 'OTTO GMBH', 'OTTO.DE', 'EBAY', 'ABOUT YOU', 'H&M', 'H+M', 'PRIMARK', 'C&A', 'ZARA', 'DEICHMANN', 'MEDIAMARKT', 'MEDIA MARKT', 'SATURN', 'TEMU', 'SHEIN', 'ALIEXPRESS', 'IKEA', 'OBI', 'BAUHAUS', 'HORNBACH', 'TOOM', 'HAGEBAU', 'ACTION', 'TEDI', 'KIK', 'WOOLWORTH', 'DECATHLON', 'THALIA', 'CYBERPORT', 'NOTEBOOKSBILLIGER', 'ALTERNATE', 'JYSK', 'POCO', 'ROLLER', 'KLARNA', 'OTTO', 'OTTO PAYMENTS', 'TK MAXX', 'TKMAXX', 'FASHION ID', 'TCHIBO', 'HEMA', 'PULL & BEAR', 'PULL&BEAR', 'CARPISA', 'OVS', 'ORIGINAL MARINES', 'EL CORTE INGLES', 'STRENE GRENE', 'FLYING TIGER', 'SMYTHS', 'BABYPARK', 'KIABI', 'HOME24', 'BLUME 2000', 'BLUME2000', 'BLUMEN', 'GARTENCENTER', 'DEHNER'],
-    ['freizeit', '', 'MCFIT', 'MY GYM', 'MYGYM', 'GYM', 'FITNESS', 'FITNESSSTUDIO', 'CLEVER FIT', 'FITX', 'URBAN SPORTS', 'JOHN REED', 'INJOY', 'KINO', 'CINEMAXX', 'UCI', 'CINESTAR', 'EVENTIM', 'TICKETMASTER', 'BOWLING', 'SCHWIMMBAD', 'FREIBAD', 'MUSEUM', 'ZOO', 'THEATER'],
+    ['shopping', '', 'AMAZON', 'AMZN', 'ZALANDO', 'OTTO GMBH', 'OTTO.DE', 'EBAY', 'ABOUT YOU', 'H&M', 'H+M', 'PRIMARK', 'C&A', 'ZARA', 'DEICHMANN', 'MEDIAMARKT', 'MEDIA MARKT', 'SATURN', 'TEMU', 'SHEIN', 'ALIEXPRESS', 'IKEA', 'OBI', 'BAUHAUS', 'HORNBACH', 'TOOM', 'HAGEBAU', 'ACTION', 'TEDI', 'KIK', 'WOOLWORTH', 'DECATHLON', 'THALIA', 'CYBERPORT', 'NOTEBOOKSBILLIGER', 'ALTERNATE', 'JYSK', 'POCO', 'ROLLER', 'KLARNA', 'OTTO', 'OTTO PAYMENTS', 'TK MAXX', 'TKMAXX', 'FASHION ID', 'TCHIBO', 'HEMA', 'PULL & BEAR', 'PULL&BEAR', 'CARPISA', 'OVS', 'ORIGINAL MARINES', 'EL CORTE INGLES', 'STRENE GRENE', 'FLYING TIGER', 'SMYTHS', 'BABYPARK', 'KIABI', 'HOME24', 'BLUME 2000', 'BLUME2000', 'BLUMEN', 'GARTENCENTER', 'DEHNER', 'ETSY', 'NIKE', 'NIKEPOS', 'S OLIVER', 'S.OLIVER', 'EUROSHOP', 'MISTERSPEX'],
+    ['freizeit', '', 'MCFIT', 'MY GYM', 'MYGYM', 'GYM', 'FITNESS', 'FITNESSSTUDIO', 'CLEVER FIT', 'FITX', 'URBAN SPORTS', 'JOHN REED', 'INJOY', 'KINO', 'CINEMAXX', 'UCI', 'CINESTAR', 'EVENTIM', 'TICKETMASTER', 'BOWLING', 'SCHWIMMBAD', 'FREIBAD', 'MUSEUM', 'ZOO', 'THEATER', 'ESN', 'ESN.COM'],
     ['bargeld', '-', 'VIACASHWITHDRAWAL', 'GELDAUTOMAT', 'BARGELDAUSZAHLUNG', 'BARGELD', 'BARAUSZAHLUNG', 'AUSZAHLUNG GELDAUTOMAT', 'CASH WITHDRAWAL', 'ATM', 'BARGELDABHEBUNG'],
     ['spenden', '', 'SPENDE', 'SPENDEN', 'KOLLEKTE', 'KIRCHE', 'KIRCHENGEMEINDE', 'ZEHNTE', 'UNICEF', 'CARITAS', 'DIAKONIE', 'WWF', 'GREENPEACE', 'AERZTE OHNE GRENZEN', 'SOS KINDERDORF'],
-    ['gebuehren', '-', 'KONTOFUEHRUNG', 'KONTOFUEHRUNGSENTGELT', 'KONTOFUEHRUNGSGEBUEHR', 'RECHNUNGSABSCHLUSS', 'ABSCHLUSS', 'ENTGELT', 'ENTGELTE', 'GEBUEHR', 'GEBUEHREN', 'SOLLZINSEN', 'DISPOZINSEN', 'ZINSEN'],
+    ['gebuehren', '-', 'KONTOFUEHRUNG', 'KONTOFUEHRUNGSENTGELT', 'KONTOFUEHRUNGSGEBUEHR', 'RECHNUNGSABSCHLUSS', 'ABSCHLUSS', 'ENTGELT', 'ENTGELTE', 'GEBUEHR', 'GEBUEHREN', 'SOLLZINSEN', 'DISPOZINSEN', 'ZINSEN', 'TEILNAHMEGEBUEHR', 'EXTRAPUNKTE'],
     ['gebuehren', '', 'FINANZAMT', 'BUNDESKASSE', 'STADTKASSE', 'STEUER', 'STEUERN', 'KONTOAUFLOESUNG', 'STADT', 'KREIS', 'BEZIRKSREGIERUNG', 'LANDESKASSE', 'LANDESHAUPTKASSE']
   ];
 
@@ -974,11 +977,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
   const TRANSFER_RE = wordsRe(['TOPUP', 'TOP UP', 'TRANSFER', 'UEBERWEISUNG', 'ECHTZEITUEBERWEISUNG', 'UMBUCHUNG', 'UEBERTRAG']);
   const txText = (t) => ' ' + catText([t.n, t.p, t.t].join(' ')) + ' ';
-  function looksLinked(a, b) {
+  // 2: one side names the other account's bank or card; 1: both look like transfers; 0: no sign of a transfer
+  function linkStrength(a, b) {
     const ta = txText(a), tb = txText(b), wa = bankWords(a.acc), wb = bankWords(b.acc);
-    if (wb.length && wordsRe(wb).test(ta)) return true;
-    if (wa.length && wordsRe(wa).test(tb)) return true;
-    return TRANSFER_RE.test(ta) && TRANSFER_RE.test(tb);
+    if (wb.length && wordsRe(wb).test(ta)) return 2;
+    if (wa.length && wordsRe(wa).test(tb)) return 2;
+    return TRANSFER_RE.test(ta) && TRANSFER_RE.test(tb) ? 1 : 0;
   }
   const dayNum = (iso) => Math.round(fromISO(iso).getTime() / 864e5);
   function linkTransfers() {
@@ -988,7 +992,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     let n = 0;
     free.filter((t) => t.a < 0).sort((x, y) => x.d.localeCompare(y.d)).forEach((o) => {
       const dn = dayNum(o.d);
-      const cands = (ins[-o.a] || []).filter((i) => !i.l && i.acc !== o.acc && Math.abs(dayNum(i.d) - dn) <= 4 && looksLinked(o, i));
+      const cands = (ins[-o.a] || []).filter((i) => {
+        if (i.l || i.acc === o.acc) return false;
+        const gap = Math.abs(dayNum(i.d) - dn), st = gap <= 10 ? linkStrength(o, i) : 0;
+        return st === 2 || (st === 1 && gap <= 4);
+      });
       if (!cands.length) return;
       cands.sort((x, y) => Math.abs(dayNum(x.d) - dn) - Math.abs(dayNum(y.d) - dn));
       const id = newId();
@@ -1387,6 +1395,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     return String(acc || '').toLowerCase() + '|' + it.d + '|' + it.a + '|' + normText((it.n || '') + ' ' + (it.p || '')).slice(0, 80);
   }
 
+  function isAmexFile(header, rows, name) {
+    const h = header.map(H);
+    if (h.indexOf('erscheintaufihrerabrechnungals') >= 0) return true;
+    if (/amex|american.?express/i.test(name || '')) return true;
+    return rows.slice(0, 400).some((r) => r.some((c) => /ZAHLUNG\/\s*ÜBERWEISUNG ERHALTEN|PAYMENT RECEIVED.*THANK YOU/i.test(c)));
+  }
   function readCSVFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
@@ -1423,6 +1437,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           fileName: file.name, rows: rows, headerIdx: headerIdx, header: header, map: map, delim: delim,
           acc: guessAccount(header, file.name), items: [], stats: null, guessed: guessed
         };
+        // American Express: purchases are positive and payments negative, so the signs are turned round
+        if (isAmexFile(header, rows, file.name)) { map.invert = true; S.imp.acc = 'American Express'; S.imp.card = 'American Express'; }
         buildImport();
         renderImport();
         $('pvMap').open = S.imp.guessed || !S.imp.items.length;
@@ -1562,7 +1578,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     S.imp = null;
     $('csvInput').value = '';
     buildPeriods();
-    if (last) S.month = periodOf(last);
+    // Stay on the current month when it has data, also after importing older statements
+    if (last) S.month = S.tx.some((t) => periodOf(t.d) === currentPeriod()) ? currentPeriod() : periodOf(last);
     importMsg(added.length ? txWord(added.length) + ' aus ' + imp.fileName + ' importiert.'
       : balUpd.length ? 'Kontostand aktualisiert. Alle Umsätze waren schon vorhanden.'
       : imp.kind === 'pdf' ? 'Alle Umsätze aus diesen Kontoauszügen sind schon vorhanden.' : 'Alle Umsätze aus dieser Datei sind schon vorhanden.');
@@ -1951,14 +1968,16 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   // Money you can spend now: all accounts with a balance except savings (C24 pockets, Tagesgeld, depots)
+  const isCardAcc = (name) => /american express|amex|mastercard|visa|kreditkarte|klarna|advanzia|anyfin|riverty|barclaycard/i.test(name);
   const isSavingsAcc = (name) => isPocketAcc(name) || /tagesgeld|sparkonto|depot|trade republic|scalable/i.test(name);
   function renderAvailable() {
-    let sum = 0, n = 0, oldest = '';
+    let sum = 0, n = 0, oldest = '', owed = 0, cards = 0;
     const saved = [];
     accounts().forEach((a) => {
       const b = balanceOf(a.name);
       if (!b) return;
       if (isSavingsAcc(a.name)) { saved.push(a.name.replace(/^C24 /, '') + ' ' + fmt(b.a)); return; }
+      if (isCardAcc(a.name)) { owed += b.a; cards++; return; }
       sum += b.a; n++;
       // Cash is kept up to date by hand, so the date shown is that of the bank accounts
       if (a.name !== CASH && (!oldest || b.d < oldest)) oldest = b.d;
@@ -1969,8 +1988,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('availBig').textContent = fmt(sum);
     $('availBig').classList.toggle('neg', sum < 0);
     $('availStand').textContent = oldest ? 'Stand ' + fDate.format(fromISO(oldest)) : '';
-    $('availMeta').hidden = !saved.length;
-    $('availMeta').textContent = 'Ohne Sparkonto: ' + saved.join(', ');
+    const parts = [];
+    if (cards) parts.push('Kreditkarten offen: ' + fmt(-owed) + ' · danach ' + fmt(sum + owed));
+    if (saved.length) parts.push('Ohne Sparkonto: ' + saved.join(', '));
+    $('availMeta').hidden = !parts.length;
+    $('availMeta').textContent = parts.join(' · ');
   }
   function renderBalances() {
     const ul = $('balList');
@@ -2290,6 +2312,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     else if (!imp.items.length) notes.push('Keine Umsätze erkannt. Öffne „Spalten anpassen“ und wähle Datum und Betrag.');
     else if (imp.guessed === 'values') notes.push('Keine Spaltenüberschriften gefunden. Bitte prüfe die Vorschau und die Spalten.');
     else if (imp.guessed === 'names') notes.push('Unbekanntes Format: Die Spalten wurden anhand ihrer Namen geschätzt. Bitte prüfe die Vorschau.');
+    if (imp.card) notes.push(imp.card + '-Abrechnung erkannt: Käufe zählen als Ausgaben in ihren Kategorien. Deine Zahlungen an die Karte werden mit deinem Girokonto verknüpft und nicht doppelt gezählt.');
     if (!isPdf && imp.balance) notes.push('Kontostand laut Datei: ' + fmt(imp.balance.a) + ' am ' + fDate.format(fromISO(imp.balance.d)) + '.');
     $('pvRange').textContent = notes.join(' ');
     const pv = $('pvList');
@@ -2626,6 +2649,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       ? 'Zähle dein Bargeld (Portemonnaie und was du zu Hause hast) und trage den Betrag ein. Danach rechnet die App selbst: Abhebungen und Bar-Trinkgeld kommen dazu, Barzahlungen und Einzahlungen gehen ab.'
       : 'Trage den Kontostand ein, wie er in deiner Banking-App steht. Umsätze nach diesem Tag werden automatisch dazugerechnet.';
     $('balNegWrap').hidden = acc === CASH;
+    if (isCardAcc(acc)) {
+      $('balHelp').textContent = 'Trage ein, was du laut Karten-App gerade schuldest. Neue Käufe und deine Zahlungen rechnet die App danach selbst dazu.';
+      if (!cur) $('balNeg').checked = true;
+      $('balNegWrap').lastChild.textContent = ' Offener Betrag (ich schulde)';
+    } else $('balNegWrap').lastChild.textContent = ' Konto ist im Minus';
     $('balRemove').hidden = !S.bal[acc];
     $('balErr').hidden = true;
     showDialog($('balSheet'));
