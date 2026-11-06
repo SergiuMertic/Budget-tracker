@@ -628,8 +628,15 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     </div>
 
     <div class="card">
-      <h2>Bargeld</h2>
-      <label class="check"><input type="checkbox" id="cashManual"> <span>Ich trage Barzahlungen einzeln ein. Abhebungen am Automaten zählen dann nicht als Ausgabe, damit nichts doppelt gezählt wird.</span></label>
+      <h2>Bargeld-Konto</h2>
+      <label class="check"><input type="checkbox" id="cashManual"> <span>Bargeld-Konto führen</span></label>
+      <p class="card-text">Abhebungen am Automaten füllen dein Bargeld auf, Einzahlungen bei der Bank nehmen es weg. Beides zählt dann nicht mehr als Ausgabe oder Einnahme. Barzahlungen trägst du mit „Barzahlung oder Umsatz von Hand“ ein. Das gilt ab dem Tag, an dem du dein Bargeld zählst; ältere Monate bleiben wie sie sind.</p>
+      <div id="tgBox" hidden>
+        <button type="button" class="secondary" id="tgBtn" style="width:100%">Bar-Trinkgeld aus der Trinkgeld-App übernehmen</button>
+        <input type="file" id="tgInput" class="sr-only" accept=".json,application/json" tabindex="-1" aria-hidden="true">
+        <p class="card-text" style="margin-top:8px">Wähle ein Backup aus der Trinkgeld-App. Übernommen wird nur das Bargeld-Trinkgeld, einmal pro Tag. Online-Trinkgeld kommt schon über dein Konto. Erneut laden aktualisiert die Tage.</p>
+        <p class="card-msg" id="tgMsg" role="status" hidden></p>
+      </div>
     </div>
 
     <div class="card">
@@ -692,7 +699,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       <label class="lbl">Konto <input type="text" class="field" id="addAcc" maxlength="40" list="accList" autocomplete="off"></label>
     </div>
     <label class="lbl">Kategorie <span class="selectw"><select class="field" id="addCat"></select><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></label>
-    <p class="card-text" id="addCashHint" hidden>Hebst du Bargeld am Automaten ab und trägst die Barzahlungen hier ein, würde beides zählen. <button type="button" class="linkbtn" id="addCashOn">Abhebungen nicht mehr zählen</button></p>
+    <p class="card-text" id="addCashHint" hidden>Mit einem Bargeld-Konto siehst du, wie viel Bargeld du noch hast, und Abhebungen zählen nicht doppelt. <button type="button" class="linkbtn" id="addCashOn">Bargeld-Konto einschalten</button></p>
     <p class="card-msg danger" id="addErr" hidden></p>
     <button type="button" class="primary" id="addSave">Speichern</button>
     <button type="button" class="textbtn" id="addCancel">Abbrechen</button>
@@ -704,12 +711,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   <form class="sheet-in" id="balForm" method="dialog" novalidate>
     <div class="grab" aria-hidden="true"></div>
     <h2 id="balSheetTitle">Kontostand</h2>
-    <p class="card-text">Trage den Kontostand ein, wie er in deiner Banking-App steht. Umsätze nach diesem Tag werden automatisch dazugerechnet.</p>
+    <p class="card-text" id="balHelp">Trage den Kontostand ein, wie er in deiner Banking-App steht. Umsätze nach diesem Tag werden automatisch dazugerechnet.</p>
     <div class="filters">
       <label class="lbl">Kontostand <span class="money"><input type="text" inputmode="decimal" class="field num" id="balAmt" placeholder="0,00" autocomplete="off"><span>€</span></span></label>
       <label class="lbl">Stand am Ende von <input type="date" class="field" id="balDate"></label>
     </div>
-    <label class="check"><input type="checkbox" id="balNeg"> Konto ist im Minus</label>
+    <label class="check" id="balNegWrap"><input type="checkbox" id="balNeg"> Konto ist im Minus</label>
     <p class="card-msg danger" id="balErr" hidden></p>
     <button type="button" class="primary" id="balSave">Speichern</button>
     <button type="button" class="textbtn danger" id="balRemove">Kontostand entfernen</button>
@@ -728,7 +735,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '6';
+  const APP_VERSION = '7';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -809,8 +816,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     { id: 'sonstiges', name: 'Sonstiges', kind: 'out', color: '#979EA3', icon: 'dots' },
     { id: 'sparen', name: 'Sparen & Investieren', kind: 'save', color: '#3F86D6', icon: 'trend' },
     { id: 'gehalt', name: 'Gehalt & Lohn', kind: 'in', color: '#2E8A2A', icon: 'job' },
+    { id: 'trinkgeld', name: 'Trinkgeld', kind: 'in', color: '#3FA36B', icon: 'cash' },
+    { id: 'bareinzahlung', name: 'Bargeld-Einzahlung', kind: 'in', color: '#8FAF4A', icon: 'cash' },
     { id: 'einnahmen', name: 'Sonstige Einnahmen', kind: 'in', color: '#6BAA3A', icon: 'plus' },
-    { id: 'umbuchung', name: 'Umbuchung (nicht zählen)', kind: 'skip', color: '#9AA1A6', icon: 'swap' }
+    { id: 'umbuchung', name: 'Umbuchung (nicht zählen)', kind: 'skip', color: '#9AA1A6', icon: 'swap' },
+    { id: 'cashmove', name: 'Bargeld abgehoben oder eingezahlt', kind: 'skip', color: '#8C7A66', icon: 'cash' }
   ];
   const CUSTOM_COLORS = ['#D0473F', '#7B8F2A', '#2B8DB8', '#A15ACB', '#D98A1F', '#3B9E8F', '#C2507A', '#5E7BD6'];
 
@@ -821,7 +831,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     ['umbuchung', '', 'UMBUCHUNG', 'UEBERTRAG', 'KONTOUEBERTRAG', 'EIGENE KONTEN', 'EIGENES KONTO', 'KREDITKARTENABRECHNUNG', 'KREDITKARTE ABRECHNUNG', 'AUSGLEICH KREDITKARTE', 'KREDITKARTENAUSGLEICH'],
     ['gehalt', '+', 'LOHN', 'GEHALT', 'BEZUEGE', 'ARBEITSENTGELT', 'LOHNABRECHNUNG', 'GEHALTSZAHLUNG', 'ENTGELTABRECHNUNG'],
     ['eigene', '-', 'REVOLUT', 'TOPUP', 'TOP UP', 'AUFLADUNG'],
-    ['einnahmen', '+', 'KINDERGELD', 'FAMILIENKASSE', 'BAREINZAHLUNG', 'BARGELDEINZAHLUNG', 'VIACASHDEPOSIT', 'EINZAHLUNG', 'ZINSEN', 'ZINSGUTSCHRIFT', 'HABENZINSEN', 'TRINKGELD', 'TRINKGELDZAHLUNG', 'SMILY', 'CASHBACK', 'PRAEMIE', 'FINANZAMT', 'STEUERERSTATTUNG', 'ERSTATTUNG', 'INCENTIVE'],
+    ['trinkgeld', '+', 'TRINKGELD', 'TRINKGELDZAHLUNG'],
+    ['bareinzahlung', '+', 'BAREINZAHLUNG', 'BARGELDEINZAHLUNG', 'VIACASHDEPOSIT', 'EINZAHLUNG'],
+    ['einnahmen', '+', 'KINDERGELD', 'FAMILIENKASSE', 'ZINSEN', 'ZINSGUTSCHRIFT', 'HABENZINSEN', 'SMILY', 'CASHBACK', 'PRAEMIE', 'FINANZAMT', 'STEUERERSTATTUNG', 'ERSTATTUNG', 'INCENTIVE'],
     ['handy', '', 'ALDI TALK', 'TELEKOM', 'VODAFONE', 'O2', 'TELEFONICA', '1&1', '1UND1', 'CONGSTAR', 'FREENET', 'MOBILCOM', 'WINSIM', 'FRAENK', 'PYUR', 'DEUTSCHE GLASFASER', 'NETCOLOGNE', 'LEBARA', 'LYCAMOBILE'],
     ['kredit', '', 'AMERICAN EXPRESS', 'AMEX', 'ANYFIN', 'KLARNA CARD', 'ADVANZIA', 'HANSEATIC BANK', 'BARCLAYS', 'TF BANK', 'SANTANDER CONSUMER', 'RATENKREDIT', 'KREDITRATE', 'DARLEHEN', 'TILGUNG'],
     ['reisen', '', 'RYANAIR', 'EUROWINGS', 'LUFTHANSA', 'WIZZ', 'WIZZAIR', 'EASYJET', 'CONDOR', 'TUIFLY', 'TUI', 'BOOKING.COM', 'AIRBNB', 'HOTEL', 'HOTELS', 'HOTELVERGLEICH', 'RADISSON', 'HILTON', 'MARRIOTT', 'IBIS', 'MOTEL ONE', 'AIRPORT', 'FLUGHAFEN', 'EXPEDIA', 'OPODO', 'HOLIDAYCHECK', 'FERIENWOHNUNG'],
@@ -863,7 +875,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     budgets: {},     // category id -> cents per month
     owner: '',       // account holder name from the statements (stays on this device)
     bal: {},         // account name -> { d, a }: balance at the end of day d (cents)
-    opts: { cashManual: false, payday: false },
+    opts: { cashManual: false, payday: false, cashSince: '' },
     rules: [],       // { id, k: keyword (normalized), c: category id }
     cats: [],        // custom categories
     month: thisMonth(),
@@ -876,8 +888,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   let CATS = [], CAT = {}, USER_COMPILED = [];
 
   function rebuildCats() {
-    // With cash purchases entered by hand, ATM withdrawals only move money and are not counted
-    const base = BASE_CATS.map((c) => (c.id === 'bargeld' && S.opts.cashManual ? Object.assign({}, c, { kind: 'skip', name: 'Abhebungen (nicht zählen)' }) : c));
+    const base = BASE_CATS;
     const out = base.filter((c) => c.kind === 'out' && c.id !== 'sonstiges');
     CATS = out.concat(S.cats, base.filter((c) => c.id === 'sonstiges' || c.kind !== 'out'));
     CAT = {};
@@ -898,7 +909,13 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   const isPocketAcc = (acc) => /^C24 /.test(acc) && acc !== 'C24 Girokonto';
   const kindOf = (id) => (CAT[id] ? CAT[id].kind : 'out');
 
+  const CASH = 'Bargeld';
   function categorize(tx) {
+    const r = categorizeBase(tx);
+    if (S.opts.cashManual && S.opts.cashSince && tx.acc && tx.acc !== CASH && tx.d > S.opts.cashSince && (r[0] === 'bargeld' || r[0] === 'bareinzahlung')) return ['cashmove', r[1]];
+    return r;
+  }
+  function categorizeBase(tx) {
     const text = catText([tx.n, tx.p, tx.t].join(' '));
     const name = ' ' + normText(tx.n) + ' ';
     // Your own name as the other party: money moved between your own accounts
@@ -1004,7 +1021,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   function cleanData(raw) {
-    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false }, owner: '' };
+    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '' }, owner: '' };
     if (!raw || typeof raw !== 'object') return out;
     const ids = {};
     (Array.isArray(raw.cats) ? raw.cats : []).forEach((c, i) => {
@@ -1049,13 +1066,14 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         if (isFinite(a) && Math.abs(a) < 1e11) out.bal[name] = { d: b.d, a: a };
       });
     }
-    if (raw.opts && typeof raw.opts === 'object') { out.opts.cashManual = raw.opts.cashManual === true; out.opts.payday = raw.opts.payday === true; }
+    if (raw.opts && typeof raw.opts === 'object') { out.opts.cashManual = raw.opts.cashManual === true; out.opts.payday = raw.opts.payday === true; out.opts.cashSince = /^\d{4}-\d{2}-\d{2}$/.test(raw.opts.cashSince) ? raw.opts.cashSince : ''; }
     out.owner = clip(raw.owner, 60);
     return out;
   }
   function loadData(clean) {
     S.tx = clean.tx; S.budgets = clean.budgets; S.rules = clean.rules; S.cats = clean.cats;
-    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false }; S.owner = clean.owner || '';
+    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false, cashSince: '' };
+    if (S.opts.cashManual && !S.opts.cashSince) S.opts.cashSince = S.bal[CASH] ? S.bal[CASH].d : today(); S.owner = clean.owner || '';
     migrateAccounts();
     rebuildCats();
     rebuildRules();
@@ -1745,7 +1763,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const b = S.bal[acc];
     if (!b) return null;
     let a = b.a, last = b.d;
-    S.tx.forEach((t) => { if (t.acc === acc && t.d > b.d) { a += t.a; if (t.d > last) last = t.d; } });
+    S.tx.forEach((t) => {
+      if (t.d <= b.d) return;
+      if (t.acc === acc) { a += t.a; if (t.d > last) last = t.d; }
+      // Cash account: a withdrawal at the bank adds cash, a deposit at the bank takes it out
+      else if (acc === CASH && t.c === 'cashmove') { a -= t.a; if (t.d > last) last = t.d; }
+    });
     return { a: a, d: last };
   }
 
@@ -1915,7 +1938,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     ul.textContent = '';
     let total = 0, known = 0;
     // Accounts with a balance, plus imported accounts still missing one; hand-entered-only accounts only once they have a balance
-    const accs = accounts().filter((a) => S.bal[a.name] || S.tx.some((t) => t.acc === a.name && t.src !== 'm'));
+    const accs = accounts().filter((a) => S.bal[a.name] || S.tx.some((t) => t.acc === a.name && t.src !== 'm') || (a.name === CASH && S.opts.cashManual));
+    if (S.opts.cashManual && !accs.some((a) => a.name === CASH)) accs.push({ name: CASH, n: 0 });
     accs.forEach((a) => {
       const b = balanceOf(a.name);
       const li = el('li');
@@ -2159,6 +2183,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     al.hidden = !accs.length;
     $('accountEmpty').hidden = !!accs.length;
     $('cashManual').checked = !!S.opts.cashManual;
+    $('tgBox').hidden = !S.opts.cashManual;
     $$('#periodSeg button').forEach((b) => b.setAttribute('aria-checked', String((b.getAttribute('data-period') === 'payday') === !!S.opts.payday)));
     $('periodInfo').textContent = !S.opts.payday
       ? 'Ein Monat läuft vom 1. bis zum letzten Tag. Mit „Ab Gehalt“ läuft er vom Gehaltseingang bis zum Tag vor dem nächsten Gehalt, damit Gehalt und Fixkosten im selben Monat stehen.'
@@ -2445,7 +2470,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const sel = $('addCat');
     sel.textContent = '';
     const kinds = addKind === 'in' ? ['in', 'skip'] : ['out', 'save', 'skip'];
-    kinds.forEach((k) => CATS.filter((c) => c.kind === k).forEach((c) => option(sel, c.id, c.name)));
+    kinds.forEach((k) => CATS.filter((c) => c.kind === k && c.id !== 'bargeld' && c.id !== 'cashmove' && c.id !== 'bareinzahlung').forEach((c) => option(sel, c.id, c.name)));
     sel.value = addKind === 'in' ? 'einnahmen' : 'sonstiges';
   }
   // Suggest a category from the description until the person picks one
@@ -2469,13 +2494,62 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     render();
     toast(on ? 'Monate laufen jetzt von Gehalt zu Gehalt.' : 'Monate laufen jetzt vom 1. bis zum Monatsende.');
   }
-  function setCashManual(on) {
+  function setCashManual(on, askBalance) {
     S.opts.cashManual = !!on;
+    if (on && !S.opts.cashSince) {
+      const y = fromISO(today()); y.setDate(y.getDate() - 1);
+      S.opts.cashSince = S.bal[CASH] ? S.bal[CASH].d : isoDay(y);
+    }
+    if (!on) S.opts.cashSince = '';
     rebuildCats();
     rebuildRules();
+    recategorizeAll();
     save();
     render();
-    toast(on ? 'Abhebungen am Automaten zählen jetzt nicht mehr als Ausgabe.' : 'Abhebungen am Automaten zählen wieder als Ausgabe.');
+    toast(on ? 'Bargeld-Konto ist an. Abhebungen zählen ab jetzt nicht mehr als Ausgabe.' : 'Bargeld-Konto ist aus. Abhebungen zählen wieder als Ausgabe.');
+    if (on && askBalance && !S.bal[CASH]) openBal(CASH);
+  }
+
+  // Cash tips from the Trinkgeld app backup: one income entry per day in the cash account
+  function importTrinkgeld(file) {
+    const msg = (t) => { const e = $('tgMsg'); e.textContent = t; e.hidden = false; };
+    const reader = new FileReader();
+    reader.onload = () => {
+      let raw = null;
+      try { raw = JSON.parse(String(reader.result)); } catch (e) { raw = null; }
+      const shifts = raw && raw.app === 'trinkgeld' && raw.shifts && typeof raw.shifts === 'object' ? raw.shifts : null;
+      if (!shifts) { msg('Diese Datei ist kein Backup der Trinkgeld-App.'); return; }
+      const since = S.opts.cashSince;
+      let added = 0, updated = 0, older = 0, sum = 0;
+      Object.keys(shifts).forEach((date) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !shifts[date] || !Array.isArray(shifts[date].tips)) return;
+        let cash = 0, n = 0;
+        shifts[date].tips.forEach((t) => {
+          if (!t) return;
+          const c = t.type === 'cash' ? Math.round(Number(t.amount)) : t.type === 'both' ? Math.round(Number(t.cash)) : 0;
+          if (isFinite(c) && c > 0 && c < 1000000) { cash += c; n++; }
+        });
+        if (date <= since) { if (cash) older++; return; }
+        const k = 'tg|' + date;
+        const ex = S.tx.filter((t) => t.k === k)[0];
+        const p = (n === 1 ? '1 Kunde' : n + ' Kunden') + ' · aus der Trinkgeld-App';
+        if (!cash) { if (ex) { S.tx = S.tx.filter((t) => t !== ex); updated++; } return; }
+        sum += cash;
+        if (ex) { if (ex.a !== cash) { ex.a = cash; ex.p = p; updated++; } return; }
+        S.tx.push({ id: newId(), d: date, a: cash, n: 'Trinkgeld bar', p: p, t: 'Trinkgeld', acc: CASH, c: 'trinkgeld', src: 'm', k: k });
+        added++;
+      });
+      if (!save()) return;
+      render();
+      const parts = [];
+      if (added) parts.push(plural(added, 'Tag', 'Tage') + ' übernommen');
+      if (updated) parts.push(plural(updated, 'Tag', 'Tage') + ' aktualisiert');
+      if (!added && !updated) parts.push('Nichts Neues');
+      if (older) parts.push(plural(older, 'älterer Tag', 'ältere Tage') + ' vor dem Start des Bargeld-Kontos ausgelassen');
+      msg(parts.join(', ') + '.');
+    };
+    reader.onerror = () => msg('Die Datei konnte nicht gelesen werden.');
+    reader.readAsText(file);
   }
   function renderAddKind() {
     $$('#addSheet .seg button').forEach((b) => b.setAttribute('aria-checked', String(b.getAttribute('data-kind') === addKind)));
@@ -2505,7 +2579,14 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('balSheetTitle').textContent = 'Kontostand: ' + acc;
     $('balAmt').value = cur ? String(Math.abs(cur.a) / 100).replace('.', ',') : '';
     $('balNeg').checked = !!cur && cur.a < 0;
-    $('balDate').value = cur ? cur.d : today();
+    const y = fromISO(today()); y.setDate(y.getDate() - 1);
+    // Cash is usually counted now, which is the state at the end of yesterday
+    $('balDate').value = cur ? cur.d : acc === CASH ? isoDay(y) : today();
+    $('balSheetTitle').textContent = acc === CASH ? 'Wie viel Bargeld hast du?' : 'Kontostand: ' + acc;
+    $('balHelp').textContent = acc === CASH
+      ? 'Zähle dein Bargeld (Portemonnaie und was du zu Hause hast) und trage den Betrag ein. Danach rechnet die App selbst: Abhebungen und Bar-Trinkgeld kommen dazu, Barzahlungen und Einzahlungen gehen ab.'
+      : 'Trage den Kontostand ein, wie er in deiner Banking-App steht. Umsätze nach diesem Tag werden automatisch dazugerechnet.';
+    $('balNegWrap').hidden = acc === CASH;
     $('balRemove').hidden = !S.bal[acc];
     $('balErr').hidden = true;
     showDialog($('balSheet'));
@@ -2520,6 +2601,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { err.textContent = 'Bitte ein Datum wählen.'; err.hidden = false; return; }
     const before = S.bal[balAcc];
     S.bal[balAcc] = { d: d, a: neg ? -v : v };
+    if (balAcc === CASH && S.opts.cashManual && d < S.opts.cashSince) { S.opts.cashSince = d; recategorizeAll(); }
     if (!save()) { if (before) S.bal[balAcc] = before; else delete S.bal[balAcc]; return; }
     hideDialog($('balSheet'));
     render();
@@ -2690,8 +2772,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   $('addAcc').addEventListener('input', renderCashHint);
   $('addName').addEventListener('input', suggestAddCat);
   $('addCat').addEventListener('change', () => { addCatTouched = true; });
-  $('addCashOn').addEventListener('click', () => { setCashManual(true); renderCashHint(); fillAddCats(); });
-  $('cashManual').addEventListener('change', (e) => setCashManual(e.target.checked));
+  $('addCashOn').addEventListener('click', () => { setCashManual(true, false); renderCashHint(); fillAddCats(); });
+  $('cashManual').addEventListener('change', (e) => setCashManual(e.target.checked, true));
+  $('tgBtn').addEventListener('click', () => $('tgInput').click());
+  $('tgInput').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) importTrinkgeld(f); e.target.value = ''; });
   $$('#periodSeg button').forEach((b) => b.addEventListener('click', () => {
     const on = b.getAttribute('data-period') === 'payday';
     if (on !== !!S.opts.payday) setPayday(on);

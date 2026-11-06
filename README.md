@@ -17,7 +17,8 @@ A small offline web app to see where your money goes. Import your bank statement
 - Months can run from payday to payday ("Ab Gehalt" under Daten): each month starts on the day your main salary actually arrived, so salary and the fixed costs it pays are in the same month
 - Monthly budgets and a savings goal, with a one-tap suggestion from your average of the last 3 months
 - 6-month history chart
-- Add cash transactions by hand; an option makes ATM withdrawals not count as spending, so cash is not counted twice
+- Cash account (Bargeld-Konto): enter how much cash you have once; ATM withdrawals and cash tips add to it, cash purchases and bank deposits take from it. Withdrawals and deposits then count as moving money, not as spending or income
+- Cash tips can be taken over from a backup of the Trinkgeld app (cash only, one entry per day; loading again updates the days)
 - Transfers between your own accounts can be marked as "not counted"
 - Backup to a file and restore from it
 - Light and dark mode, German interface
