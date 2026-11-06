@@ -1,0 +1,4 @@
+"Booking Date","Value Date","Partner Name","Partner Iban",Type,"Payment Reference","Account Name","Amount (EUR)","Original Amount","Original Currency","Exchange Rate"
+2026-10-12,2026-10-12,"BURGER KING 123",,Presentment,"-","Main Account",-11.49,,,
+2026-10-13,2026-10-13,"Uber Eats",,Presentment,"Order, Pizza","Main Account",-18.2,,,
+2026-10-20,2026-10-20,"IKEA Essen",,Presentment,"-","Main Account",-149.00,,,

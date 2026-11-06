@@ -1,0 +1,166 @@
+"""Smoke test for the Budget app. Uses only the synthetic files in tests/fixtures.
+
+Run from anywhere:  python3 tests/smoke_test.py
+Needs: python3 -m pip install playwright  and  python3 -m playwright install chromium
+Optional: set CHROME to a Chrome/Chromium binary to use it instead of Playwright's own.
+"""
+import os
+import socket
+import subprocess
+import sys
+import time
+
+from playwright.sync_api import sync_playwright
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FIX = os.path.join(ROOT, 'tests', 'fixtures')
+results = []
+
+
+def free_port():
+    s = socket.socket()
+    s.bind(('127.0.0.1', 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+def check(label, cond, extra=''):
+    results.append(cond)
+    print(('PASS ' if cond else 'FAIL ') + label + (('  ' + str(extra)) if extra != '' and not cond else ''))
+
+
+def fx(name):
+    return os.path.join(FIX, name)
+
+
+def main():
+    port = free_port()
+    srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1'], cwd=ROOT,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(1)
+    errors = []
+    try:
+        with sync_playwright() as p:
+            opts = {'args': ['--no-sandbox']}
+            if os.environ.get('CHROME'):
+                opts['executable_path'] = os.environ['CHROME']
+            browser = p.chromium.launch(**opts)
+            ctx = browser.new_context(viewport={'width': 390, 'height': 844}, locale='de-DE', accept_downloads=True)
+            page = ctx.new_page()
+            page.on('pageerror', lambda e: errors.append('pageerror: ' + str(e)))
+            page.on('console', lambda m: errors.append('console: ' + m.text) if m.type == 'error' else None)
+            page.on('dialog', lambda d: d.accept())
+            page.goto('http://127.0.0.1:%d/' % port)
+            page.wait_for_timeout(500)
+            check('welcome card on an empty device', page.is_visible('#welcome'))
+
+            def preview(file):
+                page.click('#tab-data')
+                page.set_input_files('#csvInput', file)
+                page.wait_for_selector('#previewCard:not([hidden])', timeout=15000)
+                return page.evaluate("""() => ({ new: pvNew.textContent, dup: pvDup.textContent, skip: pvSkip.textContent,
+                    acc: pvAcc.value, range: pvRange.textContent, invert: mInvert.checked })""")
+
+            def commit():
+                page.click('#pvImport')
+                page.wait_for_timeout(400)
+
+            # Bank CSV layouts
+            info = preview(fx('sparkasse.csv'))
+            check('Sparkasse: 49 new, account guessed', info['new'] == '49' and info['acc'] == 'Sparkasse', info)
+            commit()
+            info = preview(fx('sparkasse.csv'))
+            check('Sparkasse again: all duplicates', info['new'] == '0' and info['dup'] == '49', info)
+            page.click('#pvCancel')
+            for name, new, extra in [('ing.csv', '4', None), ('dkb.csv', '3', 'pending'), ('n26.csv', '3', None),
+                                     ('revolut.csv', '2', None), ('unbekannt.csv', '2', 'names')]:
+                info = preview(fx(name))
+                ok = info['new'] == new
+                if extra == 'pending':
+                    ok = ok and info['skip'] == '1'
+                if extra == 'names':
+                    ok = ok and 'Unbekanntes Format' in info['range']
+                check(name + ': ' + new + ' new', ok, info)
+                commit()
+
+            # American Express: signs turned, payment matched with the bank side
+            info = preview(fx('amex.csv'))
+            check('Amex detected, signs turned', info['acc'] == 'American Express' and info['invert'] and 'Abrechnung erkannt' in info['range'], info)
+            commit()
+            info = preview(fx('giro-card-payment.csv'))
+            commit()
+            data = page.evaluate("JSON.parse(localStorage.getItem('budget.data.v1'))")
+            amex = [t for t in data['tx'] if t['acc'] == 'American Express']
+            pay = [t for t in data['tx'] if 'AMERICAN EXPRESS' in t['n'] or 'ZAHLUNG' in t['n']]
+            check('Amex purchases negative, refund positive', any(t['a'] == -2340 for t in amex) and any(t['a'] == 1995 for t in amex), [(t['n'], t['a']) for t in amex])
+            check('Amex payment linked on both sides', len(pay) == 2 and all(t.get('l') and t['c'] == 'umbuchung' for t in pay), [(t['acc'], t['a'], t['c'], t.get('l')) for t in pay])
+
+            # Balances and Verfügbar
+            page.click('#tab-overview')
+            page.click('#balList .balrow:has-text("Sparkasse")')
+            page.wait_for_selector('#balSheet[open]')
+            page.fill('#balAmt', '500')
+            page.fill('#balDate', '2026-11-30')
+            page.click('#balSave')
+            page.wait_for_timeout(200)
+            page.click('#balList .balrow:has-text("American Express")')
+            page.wait_for_selector('#balSheet[open]')
+            check('card balance sheet asks for amount owed', page.is_checked('#balNeg'))
+            page.fill('#balAmt', '50')
+            page.fill('#balDate', '2026-11-30')
+            page.click('#balSave')
+            page.wait_for_timeout(200)
+            av = page.evaluate("() => ({ big: availBig.textContent, meta: availMeta.textContent })")
+            num = lambda t: float(t.replace('\xa0', ' ').replace('€', '').replace('.', '').replace(',', '.').strip())
+            after_cards = av['meta'].split('danach ')[1].split(' ·')[0] if 'danach ' in av['meta'] else ''
+            check('Verfügbar excludes cards and shows them below', 'Kreditkarten offen: 50,00' in av['meta'] and after_cards and abs(num(av['big']) - 50 - num(after_cards)) < 0.005, av)
+
+            # Cash account
+            page.click('#tab-data')
+            page.check('#cashManual')
+            page.wait_for_selector('#balSheet[open]')
+            check('cash account asks how much cash', page.text_content('#balSheetTitle') == 'Wie viel Bargeld hast du?')
+            page.fill('#balAmt', '80')
+            page.click('#balSave')
+            page.wait_for_timeout(200)
+            page.click('#tab-overview')
+            page.click('#balCard [data-action="add-tx"]')
+            page.wait_for_selector('#addSheet[open]')
+            page.fill('#addAmt', '4,50')
+            page.fill('#addName', 'Bäcker')
+            check('description suggests a category', page.input_value('#addCat') == 'lebensmittel', page.input_value('#addCat'))
+            page.click('#addSave')
+            page.wait_for_timeout(200)
+            rows = page.evaluate("() => Array.from(document.querySelectorAll('#balList .balrow')).map(b => b.innerText.replace(/\\n/g, ' | '))")
+            check('cash purchase lowers Bargeld to 75,50', any(r.startswith('Bargeld') and '75,50' in r for r in rows), rows)
+
+            # Backup round trip
+            page.click('#tab-data')
+            with page.expect_download() as dl:
+                page.click('#exportBtn')
+            path = os.path.join(ROOT, 'tests', '_backup_test.json')
+            dl.value.save_as(path)
+            before = page.evaluate("localStorage.getItem('budget.data.v1')")
+            page.click('#wipeBtn')
+            page.wait_for_timeout(200)
+            page.set_input_files('#backupInput', path)
+            page.wait_for_timeout(600)
+            after = page.evaluate("JSON.parse(localStorage.getItem('budget.data.v1'))")
+            import json
+            b = json.loads(before)
+            check('backup restores everything', len(after['tx']) == len(b['tx']) and after['bal'] == b['bal'] and after['opts'] == b['opts'])
+            os.remove(path)
+
+            # Version shown and service worker registered
+            note = page.text_content('#note')
+            check('version shown at the bottom', 'Version' in note, note)
+            browser.close()
+    finally:
+        srv.terminate()
+    print('errors:', errors or 'none')
+    sys.exit(0 if all(results) and not errors else 1)
+
+
+if __name__ == '__main__':
+    main()

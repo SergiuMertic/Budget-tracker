@@ -1,0 +1,16 @@
+Umsatzanzeige;Datei erstellt am: 05.11.2026 21:30
+
+IBAN;DE00 5001 0517 0000 0000 00
+Kontoname;Extra-Konto
+Bank;ING
+Kunde;Max Muster
+Zeitraum;01.10.2026 - 31.10.2026
+Saldo;1.234,56;EUR
+
+Sortierung;Datum absteigend
+
+Buchung;Valuta;Auftraggeber/Empfänger;Buchungstext;Verwendungszweck;Saldo;Währung;Betrag;Währung
+30.10.2026;30.10.2026;Spotify AB;Lastschrift;Spotify Premium;1.234,56;EUR;-10,99;EUR
+28.10.2026;28.10.2026;Lieferando.de;Lastschrift;Bestellung 12345;1.245,55;EUR;-23,40;EUR
+15.10.2026;15.10.2026;Max Muster;Gutschrift;Trinkgeld Einzahlung;1.268,95;EUR;1.050,00;EUR
+03.10.2026;03.10.2026;Fitnessstudio Beispiel;Lastschrift;Mitgliedsbeitrag FITNESS;218,95;EUR;-29,90;EUR
