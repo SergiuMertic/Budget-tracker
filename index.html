@@ -199,6 +199,18 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-h
 .legend .v { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero-meta { font-size: 14px; color: var(--muted); }
 .hero-range { font-size: 14px; color: var(--muted); margin-top: -6px; }
+.payday-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.payday-stat { display: grid; gap: 4px; min-width: 0; padding: 12px; border-radius: 12px; background: var(--surface-2); }
+.payday-stat span { font-size: 13px; line-height: 1.3; color: var(--muted); }
+.payday-stat strong { min-width: 0; font-family: var(--font-display); font-size: 23px; line-height: 1.1; overflow-wrap: anywhere; }
+.payday-stat strong.neg { color: var(--over); }
+.payday-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.payday-list > li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.payday-detail { display: flex; flex-direction: column; min-width: 0; }
+.payday-name { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.payday-meta { color: var(--muted); font-size: 13px; }
+.payday-amount { flex: none; font-weight: 600; white-space: nowrap; }
+.payday-warning { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--over-soft); color: var(--over); font-size: 14px; font-weight: 600; }
 
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow);
@@ -496,6 +508,23 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           </div>
         </div>
 
+        <section class="card" id="paydayCard" aria-labelledby="paydayTitle" hidden>
+          <div class="section-head"><h2 id="paydayTitle">Bis zum Gehalt</h2></div>
+          <div class="payday-summary">
+            <div class="payday-stat">
+              <span id="paydayDueLabel">Noch fällig bis —</span>
+              <strong class="num" id="paydayDue">–</strong>
+            </div>
+            <div class="payday-stat">
+              <span>Frei verfügbar</span>
+              <strong class="num" id="paydayFree">–</strong>
+            </div>
+          </div>
+          <p class="card-text" id="paydayNote" aria-live="polite"></p>
+          <ul class="payday-list" id="paydayList" hidden></ul>
+          <p class="payday-warning" id="paydayWarning" role="alert" hidden></p>
+        </section>
+
         <section class="card balcard" id="balCard" aria-labelledby="balTitle">
           <div class="section-head"><h2 id="balTitle">Kontostände</h2><span class="num" id="balTotal"></span></div>
           <ul class="ballist" id="balList"></ul>
@@ -751,7 +780,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '9';
+  const APP_VERSION = '10';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -1131,22 +1160,44 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
      "Gehalt & Lohn" on or after the 15th of a month starts the next month. Months without a
      detected salary start on your usual salary day. */
   let PERIOD = { on: false, starts: {}, day: 1, cache: {} };
-  function buildPeriods() {
-    PERIOD = { on: false, starts: {}, day: 1, cache: {}, last: '' };
-    if (!S.opts.payday) return;
+  function salaryPayments() {
     const best = {};
     S.tx.forEach((t) => {
       if (t.c !== 'gehalt' || t.a <= 0 || Number(t.d.slice(8, 10)) < 15) return;
       const m = t.d.slice(0, 7);
       if (!best[m] || t.a > best[m].a) best[m] = t;
     });
-    const keys = Object.keys(best).sort();
-    if (!keys.length) return;
-    const days = keys.map((m) => Number(best[m].d.slice(8, 10))).sort((a, b) => a - b);
+    return Object.keys(best).sort().map((m) => best[m]);
+  }
+  function medianNumber(values) {
+    const sorted = values.slice().sort((a, b) => a - b);
+    return sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+  }
+  function dateInMonth(month, day) {
+    const parts = month.split('-').map(Number);
+    const last = new Date(parts[0], parts[1], 0).getDate();
+    return month + '-' + pad(Math.min(day, last));
+  }
+  function buildPeriods() {
+    PERIOD = { on: false, starts: {}, day: 1, cache: {}, last: '' };
+    if (!S.opts.payday) return;
+    const salaries = salaryPayments();
+    if (!salaries.length) return;
+    const days = salaries.map((t) => Number(t.d.slice(8, 10))).sort((a, b) => a - b);
     PERIOD.on = true;
     PERIOD.day = days[Math.floor(days.length / 2)];
-    PERIOD.last = best[keys[keys.length - 1]].d;
-    keys.forEach((m) => { PERIOD.starts[shiftMonth(m, 1)] = best[m].d; });
+    PERIOD.last = salaries[salaries.length - 1].d;
+    salaries.forEach((t) => { PERIOD.starts[shiftMonth(t.d.slice(0, 7), 1)] = t.d; });
+  }
+  function nextPaydayDate() {
+    const salaries = salaryPayments();
+    if (!salaries.length) return '';
+    const day = medianNumber(salaries.map((t) => Number(t.d.slice(8, 10))));
+    const now = today(), month = now.slice(0, 7);
+    const paidThisMonth = salaries.some((t) => t.d.slice(0, 7) === month && t.d <= now);
+    const thisMonth = dateInMonth(month, day);
+    if (paidThisMonth || thisMonth < now) return dateInMonth(shiftMonth(month, 1), day);
+    return thisMonth;
   }
   function periodStart(label) {
     if (!PERIOD.on) return label + '-01';
@@ -1868,7 +1919,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('heroLabel').textContent = (left < 0 ? 'Minus im ' : 'Übrig im ') + monthName;
     $('heroBig').textContent = fmtS(left);
     $('heroBig').classList.toggle('neg', left < 0);
-    renderAvailable();
+    const available = renderAvailable();
+    renderPayday(available);
     $('heroCount').textContent = txWord(st.count);
     $('heroRange').hidden = !PERIOD.on;
     if (PERIOD.on) $('heroRange').textContent = rangeText(S.month);
@@ -1970,21 +2022,23 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   // Money you can spend now: all accounts with a balance except savings (C24 pockets, Tagesgeld, depots)
   const isCardAcc = (name) => /american express|amex|mastercard|visa|kreditkarte|klarna|advanzia|anyfin|riverty|barclaycard/i.test(name);
   const isSavingsAcc = (name) => isPocketAcc(name) || /tagesgeld|sparkonto|depot|trade republic|scalable/i.test(name);
+  const RECURRING_CATS = { wohnen: 1, versicherung: 1, handy: 1, abos: 1, freizeit: 1, kredit: 1, gebuehren: 1, sonstiges: 1 };
   function renderAvailable() {
     let sum = 0, n = 0, oldest = '', owed = 0, cards = 0;
+    const byAccount = {};
     const saved = [];
     accounts().forEach((a) => {
       const b = balanceOf(a.name);
       if (!b) return;
       if (isSavingsAcc(a.name)) { saved.push(a.name.replace(/^C24 /, '') + ' ' + fmt(b.a)); return; }
       if (isCardAcc(a.name)) { owed += b.a; cards++; return; }
-      sum += b.a; n++;
+      sum += b.a; n++; byAccount[a.name] = b.a;
       // Cash is kept up to date by hand, so the date shown is that of the bank accounts
       if (a.name !== CASH && (!oldest || b.d < oldest)) oldest = b.d;
     });
     $('hero').classList.toggle('no-avail', !n);
     $('avail').hidden = !n;
-    if (!n) return;
+    if (!n) return { sum: sum, n: n, byAccount: byAccount };
     $('availBig').textContent = fmt(sum);
     $('availBig').classList.toggle('neg', sum < 0);
     $('availStand').textContent = oldest ? 'Stand ' + fDate.format(fromISO(oldest)) : '';
@@ -1993,6 +2047,123 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (saved.length) parts.push('Ohne Sparkonto: ' + saved.join(', '));
     $('availMeta').hidden = !parts.length;
     $('availMeta').textContent = parts.join(' · ');
+    return { sum: sum, n: n, byAccount: byAccount };
+  }
+  function recurringPayee(t) {
+    const generic = { LASTSCHRIFT: 1, DAUERAUFTRAG: 1, KARTENZAHLUNG: 1, UEBERWEISUNG: 1, ECHTZEITUEBERWEISUNG: 1, ZAHLUNG: 1, ABRECHNUNG: 1, RECHNUNG: 1, SEPA: 1, MANDAT: 1, GMBH: 1, AG: 1, SE: 1, KG: 1, UG: 1, MBH: 1, DEUTSCHLAND: 1, EUROPE: 1 };
+    const sources = [t.n, t.p];
+    for (let i = 0; i < sources.length; i++) {
+      const words = normText(sources[i]).split(' ').filter((w) => w && !/\d/.test(w) && !generic[w]);
+      if (words.length) return words.join(' ');
+    }
+    return '';
+  }
+  function linkedCardSettlement(t) {
+    return !!t.l && S.tx.some((other) => other !== t && other.l === t.l && isCardAcc(other.acc));
+  }
+  function isRecurringDebit(t) {
+    if (t.a >= 0 || !t.acc || t.acc === CASH || isCardAcc(t.acc) || isSavingsAcc(t.acc)) return false;
+    if (t.c === 'bargeld' || t.c === 'cashmove' || t.c === 'sparen' || t.c === 'eigene') return false;
+    if (t.c === 'umbuchung') return linkedCardSettlement(t);
+    const scheduled = /LASTSCHRIFT|DAUERAUFTRAG|SEPA/.test(normText([t.t, t.p].join(' ')));
+    return kindOf(t.c) === 'out' && (!!RECURRING_CATS[t.c] || scheduled);
+  }
+  function recurringDebits(nextPayday) {
+    const current = currentPeriod();
+    const recent = [-3, -2, -1].map((n) => shiftMonth(current, n));
+    const included = recent.concat([current]);
+    const groups = {};
+    S.tx.forEach((t) => {
+      const period = periodOf(t.d);
+      if (included.indexOf(period) < 0 || !isRecurringDebit(t)) return;
+      const payee = recurringPayee(t);
+      if (!payee) return;
+      const key = t.acc + '|' + payee;
+      const group = groups[key] || (groups[key] = { payee: clip(t.n || t.p, 80), account: t.acc, periods: {}, card: false });
+      const entry = group.periods[period] || (group.periods[period] = { amount: 0, dates: [] });
+      entry.amount += -t.a;
+      entry.dates.push(t.d);
+      group.card = group.card || t.c === 'kredit' || linkedCardSettlement(t);
+    });
+
+    const due = [];
+    Object.keys(groups).forEach((key) => {
+      const group = groups[key];
+      const history = recent.map((period) => group.periods[period]).filter(Boolean);
+      if (history.length < 2 || group.periods[current]) return;
+      const days = history.map((entry) => medianNumber(entry.dates.map((d) => Number(d.slice(8, 10)))));
+      if (Math.max.apply(null, days) - Math.min.apply(null, days) > 8) return;
+      const amounts = history.map((entry) => entry.amount);
+      const midAmount = medianNumber(amounts);
+      if (!group.card && Math.max.apply(null, amounts) - Math.min.apply(null, amounts) > Math.max(5000, midAmount * 0.75)) return;
+      const day = medianNumber(days);
+      let date = dateInMonth(today().slice(0, 7), day);
+      if (date < today()) date = dateInMonth(shiftMonth(date.slice(0, 7), 1), day);
+      if (date > nextPayday) return;
+      due.push({
+        payee: group.payee || 'Abbuchung',
+        account: group.account,
+        date: date,
+        amount: group.card ? Math.max.apply(null, amounts) : midAmount
+      });
+    });
+    return due.sort((a, b) => a.date.localeCompare(b.date) || a.payee.localeCompare(b.payee));
+  }
+  function renderPayday(available) {
+    const card = $('paydayCard'), list = $('paydayList'), warning = $('paydayWarning');
+    if (!S.tx.length) { card.hidden = true; return; }
+    card.hidden = false;
+    list.textContent = '';
+    list.hidden = true;
+    warning.textContent = '';
+    warning.hidden = true;
+
+    const payday = nextPaydayDate();
+    $('paydayDueLabel').textContent = payday ? 'Noch fällig bis ' + fDate.format(fromISO(payday)) : 'Noch fällig bis —';
+    $('paydayDue').textContent = payday ? fmt(0) : '–';
+    $('paydayFree').textContent = available.n ? fmt(available.sum) : '–';
+    $('paydayFree').classList.toggle('neg', available.n && available.sum < 0);
+    if (!payday) {
+      $('paydayNote').textContent = 'Importiere Gehaltsumsätze, damit ich den nächsten Gehaltstag schätzen kann.';
+      return;
+    }
+
+    const due = recurringDebits(payday);
+    const total = due.reduce((sum, item) => sum + item.amount, 0);
+    $('paydayDue').textContent = fmt(total);
+    $('paydayFree').textContent = available.n ? fmt(available.sum - total) : '–';
+    $('paydayFree').classList.toggle('neg', available.n && available.sum - total < 0);
+    $('paydayNote').textContent = due.length
+      ? 'Gehaltstermin und Abbuchungen sind anhand bisheriger Umsätze geschätzt.'
+      : 'Keine weiteren regelmäßigen Abbuchungen bis zum Gehalt erkannt. Der Gehaltstermin ist geschätzt.';
+    if (!available.n) $('paydayNote').textContent += ' Trage einen aktuellen Kontostand ein, um den freien Betrag zu berechnen.';
+
+    due.forEach((item) => {
+      const li = el('li'), detail = el('span', 'payday-detail');
+      detail.appendChild(el('span', 'payday-name', item.payee));
+      detail.appendChild(el('span', 'payday-meta', fDate.format(fromISO(item.date)) + ' · ' + item.account));
+      li.appendChild(detail);
+      li.appendChild(el('span', 'payday-amount num', fmt(item.amount)));
+      list.appendChild(li);
+    });
+    list.hidden = !due.length;
+
+    if (!available.n) return;
+    const projected = Object.assign({}, available.byAccount);
+    let shortfall = null, missing = null;
+    due.forEach((item) => {
+      if (projected[item.account] == null) { if (!missing) missing = item; return; }
+      projected[item.account] -= item.amount;
+      if (projected[item.account] < 0 && !shortfall) shortfall = { item: item, amount: -projected[item.account] };
+    });
+    if (shortfall) {
+      const item = shortfall.item;
+      warning.textContent = 'Achtung: Der Kontostand reicht voraussichtlich nicht für ' + item.payee + ' am ' + fDate.format(fromISO(item.date)) + '. Es fehlen etwa ' + fmt(shortfall.amount) + '. Eine Rücklastschrift kann Gebühren kosten.';
+      warning.hidden = false;
+    } else if (missing) {
+      warning.textContent = 'Für ' + missing.account + ' fehlt ein aktueller Kontostand. Die Deckung der Abbuchung ist nicht prüfbar.';
+      warning.hidden = false;
+    }
   }
   function renderBalances() {
     const ul = $('balList');

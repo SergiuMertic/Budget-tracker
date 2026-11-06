@@ -112,10 +112,13 @@ python3 tests/smoke_test.py
 
 Every line should start with `PASS`, and the last line should be `errors: none`.
 
+## Completed
+
+- **"Bis zum Gehalt" (v10)**: the overview estimates the next payday and recurring debits, shows the remaining free amount, and warns when a forecast debit may overdraw its account.
+
 ## Open tasks (in the owner's order of priority)
 
-1. **"Bis zum Gehalt"**: find recurring payments (rent, energy, insurance, gym, subscriptions, card payments) and show "Noch fällig bis <next payday>" and "Frei verfügbar" = Verfügbar minus what is still due. Warn when the balance will not cover an upcoming direct debit; returned direct debits cost fees.
-2. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.
-3. **Household view**: import the spouse's Sparkasse CSV as a separate account (the Sparkasse layout is already recognised) and add a switch "Nur ich / Haushalt" that filters the overview by account. Transfers between the two accounts are matched automatically.
-4. **Subscription overview**: list all `abos` with their monthly and yearly cost.
-5. Known small gaps: fuel station brand "star" is not matched (too generic a word); the drugstore "Müller" is not matched (common surname).
+1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.
+2. **Household view**: import the spouse's Sparkasse CSV as a separate account (the Sparkasse layout is already recognised) and add a switch "Nur ich / Haushalt" that filters the overview by account. Transfers between the two accounts are matched automatically.
+3. **Subscription overview**: list all `abos` with their monthly and yearly cost.
+4. Known small gaps: fuel station brand "star" is not matched (too generic a word); the drugstore "Müller" is not matched (common surname).

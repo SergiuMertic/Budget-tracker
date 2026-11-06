@@ -152,6 +152,46 @@ def main():
             check('backup restores everything', len(after['tx']) == len(b['tx']) and after['bal'] == b['bal'] and after['opts'] == b['opts'])
             os.remove(path)
 
+            # "Bis zum Gehalt": recurring rent and a linked card settlement use synthetic data only
+            page.evaluate("""() => {
+                const now = new Date();
+                const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+                const monthAt = (delta) => {
+                    const d = new Date(now.getFullYear(), now.getMonth() + delta, 1);
+                    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                };
+                const currentLabel = monthAt(now.getDate() >= 28 ? 1 : 0);
+                const dueDay = now.getDate() < 27 ? now.getDate() + 1 : now.getDate() === 27 ? 27 : 5;
+                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: today, a: 30000 } }, opts: { cashManual: false, payday: true, cashSince: '' }, owner: '' };
+                let serial = 0;
+                const add = (tx) => data.tx.push(Object.assign({ id: 'forecast-' + (++serial), src: 'r' }, tx));
+                for (let offset = 1; offset <= 4; offset++) {
+                    add({ d: monthAt(-offset) + '-28', a: 300000, n: 'Example Employer', p: 'LOHN GEHALT', acc: 'Example Checking', c: 'gehalt' });
+                }
+                if (now.getDate() >= 28) add({ d: monthAt(0) + '-28', a: 300000, n: 'Example Employer', p: 'LOHN GEHALT', acc: 'Example Checking', c: 'gehalt' });
+                for (let offset = 1; offset <= 3; offset++) {
+                    const month = monthAt((now.getDate() >= 28 ? 1 : 0) - offset);
+                    const billDate = month + '-' + String(dueDay).padStart(2, '0');
+                    add({ d: billDate, a: -50000, n: 'Example Landlord GmbH', p: 'Monthly rent', acc: 'Example Checking', c: 'wohnen' });
+                    add({ d: billDate, a: -2000, n: 'REWE', p: 'Card purchase', t: 'KARTENZAHLUNG', acc: 'Example Checking', c: 'lebensmittel' });
+                    const link = 'example-card-' + offset;
+                    add({ d: billDate, a: -25000, n: 'American Express', p: 'Card settlement', acc: 'Example Checking', c: 'umbuchung', src: 't', l: link });
+                    add({ d: billDate, a: 25000, n: 'Example Checking', p: 'Card settlement', acc: 'American Express', c: 'umbuchung', src: 't', l: link });
+                }
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            forecast = page.evaluate("""() => ({
+                label: paydayDueLabel.textContent,
+                due: paydayDue.textContent,
+                free: paydayFree.textContent,
+                warning: paydayWarning.textContent,
+                rows: Array.from(paydayList.querySelectorAll('li')).map((li) => li.innerText)
+            })""")
+            check('recurring bills include a linked card settlement', abs(num(forecast['due']) - 750) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row for row in forecast['rows']), forecast)
+            check('free available reserves bills and warns about a shortfall', abs(num(forecast['free']) + 450) < 0.005 and 'reicht voraussichtlich nicht' in forecast['warning'] and 'Rücklastschrift' in forecast['warning'], forecast)
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)
