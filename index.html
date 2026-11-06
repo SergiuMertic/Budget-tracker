@@ -326,6 +326,20 @@ label.lbl { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: v
 .pv .pn b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pv .pn small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 details.map { border: 1px solid var(--well-line); border-radius: 14px; padding: 0 12px; }
+.balcard { gap: 8px; padding-bottom: 12px; }
+.balcard .section-head { padding-top: 0; }
+.ballist { list-style: none; margin: 0; padding: 0; display: grid; }
+.ballist li + li { border-top: 1px solid var(--line); }
+.balrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; width: 100%; padding: 10px 0; text-align: left; align-items: baseline; }
+.balrow .bn { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.balrow .ba { font-weight: 700; font-size: 17px; white-space: nowrap; }
+.balrow .ba.neg { color: var(--over); }
+.balrow .bs { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
+.balrow .bs.set { color: var(--primary); font-weight: 600; }
+.acct .tmeta { text-align: left; }
+.acct small.bal { color: var(--ink); font-weight: 600; }
+.linkbtn { color: var(--primary); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.sh-link { margin: 0; font-size: 14px; line-height: 1.45; background: var(--surface-2); border-radius: 12px; padding: 10px 12px; border-left: 4px solid var(--muted); }
 .stmts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .stmts li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; font-size: 14px; line-height: 1.4; }
 .stmts li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; background: var(--in-bar); }
@@ -464,6 +478,15 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           <div class="hero-meta num" id="heroMeta"></div>
         </div>
 
+        <section class="card balcard" id="balCard" aria-labelledby="balTitle">
+          <div class="section-head"><h2 id="balTitle">Kontostände</h2><span class="num" id="balTotal"></span></div>
+          <ul class="ballist" id="balList"></ul>
+          <button type="button" class="secondary" data-action="add-tx">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Barzahlung oder Umsatz von Hand
+          </button>
+        </section>
+
         <button type="button" class="hint" id="openHint" hidden>
           <span class="dot" aria-hidden="true"></span>
           <span><b id="openHintText">0 Umsätze</b> ohne passende Kategorie. Jetzt zuordnen</span>
@@ -594,6 +617,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     <p class="empty" id="ruleEmpty">Noch keine eigenen Regeln. Tippe in Umsätze auf einen Eintrag, wähle die Kategorie und lass dir die Zuordnung merken.</p>
 
     <div class="card">
+      <h2>Bargeld</h2>
+      <label class="check"><input type="checkbox" id="cashManual"> <span>Ich trage Barzahlungen einzeln ein. Abhebungen am Automaten zählen dann nicht als Ausgabe, damit nichts doppelt gezählt wird.</span></label>
+    </div>
+
+    <div class="card">
       <h2>Backup</h2>
       <p class="card-text">Deine Daten sind nur auf diesem Gerät gespeichert. Sichere ab und zu ein Backup, zum Beispiel in der Dateien-App. Ein Backup laden ersetzt die Daten auf diesem Gerät.</p>
       <div class="btn-row">
@@ -606,7 +634,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 
     <div class="card">
       <h2>Alles löschen</h2>
-      <p class="card-text">Entfernt alle Umsätze, Budgets, Regeln und eigenen Kategorien von diesem Gerät.</p>
+      <p class="card-text">Entfernt alle Umsätze, Kontostände, Budgets, Regeln und eigenen Kategorien von diesem Gerät.</p>
       <button type="button" class="secondary danger" id="wipeBtn">Alle Daten löschen</button>
     </div>
   </section>
@@ -624,6 +652,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     </div>
     <div class="sh-amt num" id="shAmt"></div>
     <p class="sh-purpose" id="shPurpose"></p>
+    <p class="sh-link" id="shLink" hidden></p>
     <div id="shChips"></div>
     <label class="check"><input type="checkbox" id="shRule"> <span>Immer so zuordnen, wenn dieser Text im Umsatz steht:</span></label>
     <input type="text" class="field" id="shRuleKw" maxlength="40" aria-label="Text für die Regel" autocomplete="off">
@@ -652,9 +681,28 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       <label class="lbl">Konto <input type="text" class="field" id="addAcc" maxlength="40" list="accList" autocomplete="off"></label>
     </div>
     <label class="lbl">Kategorie <span class="selectw"><select class="field" id="addCat"></select><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></label>
+    <p class="card-text" id="addCashHint" hidden>Hebst du Bargeld am Automaten ab und trägst die Barzahlungen hier ein, würde beides zählen. <button type="button" class="linkbtn" id="addCashOn">Abhebungen nicht mehr zählen</button></p>
     <p class="card-msg danger" id="addErr" hidden></p>
     <button type="button" class="primary" id="addSave">Speichern</button>
     <button type="button" class="textbtn" id="addCancel">Abbrechen</button>
+  </form>
+</dialog>
+
+<!-- Account balance -->
+<dialog class="sheet" id="balSheet" aria-labelledby="balSheetTitle">
+  <form class="sheet-in" id="balForm" method="dialog" novalidate>
+    <div class="grab" aria-hidden="true"></div>
+    <h2 id="balSheetTitle">Kontostand</h2>
+    <p class="card-text">Trage den Kontostand ein, wie er in deiner Banking-App steht. Umsätze nach diesem Tag werden automatisch dazugerechnet.</p>
+    <div class="filters">
+      <label class="lbl">Kontostand <span class="money"><input type="text" inputmode="decimal" class="field num" id="balAmt" placeholder="0,00" autocomplete="off"><span>€</span></span></label>
+      <label class="lbl">Stand am Ende von <input type="date" class="field" id="balDate"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="balNeg"> Konto ist im Minus</label>
+    <p class="card-msg danger" id="balErr" hidden></p>
+    <button type="button" class="primary" id="balSave">Speichern</button>
+    <button type="button" class="textbtn danger" id="balRemove">Kontostand entfernen</button>
+    <button type="button" class="textbtn" id="balCancel">Abbrechen</button>
   </form>
 </dialog>
 
@@ -669,7 +717,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '2';
+  const APP_VERSION = '3';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -791,6 +839,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   const S = {
     tx: [],          // { id, d: 'YYYY-MM-DD', a: cents (signed), n: name, p: purpose, t: type, acc, c: category, src: m|u|r|f, k: duplicate key }
     budgets: {},     // category id -> cents per month
+    bal: {},         // account name -> { d, a }: balance at the end of day d (cents)
+    opts: { cashManual: false },
     rules: [],       // { id, k: keyword (normalized), c: category id }
     cats: [],        // custom categories
     month: thisMonth(),
@@ -803,8 +853,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   let CATS = [], CAT = {}, USER_COMPILED = [];
 
   function rebuildCats() {
-    const out = BASE_CATS.filter((c) => c.kind === 'out' && c.id !== 'sonstiges');
-    CATS = out.concat(S.cats, BASE_CATS.filter((c) => c.id === 'sonstiges' || c.kind !== 'out'));
+    // With cash purchases entered by hand, ATM withdrawals only move money and are not counted
+    const base = BASE_CATS.map((c) => (c.id === 'bargeld' && S.opts.cashManual ? Object.assign({}, c, { kind: 'skip', name: 'Abhebungen (nicht zählen)' }) : c));
+    const out = base.filter((c) => c.kind === 'out' && c.id !== 'sonstiges');
+    CATS = out.concat(S.cats, base.filter((c) => c.id === 'sonstiges' || c.kind !== 'out'));
     CAT = {};
     CATS.forEach((c) => { CAT[c.id] = c; });
   }
@@ -829,7 +881,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function recategorizeAll() {
     let changed = 0;
     S.tx.forEach((tx) => {
-      if (tx.src === 'm' && CAT[tx.c]) return;
+      if ((tx.src === 'm' || tx.src === 't') && CAT[tx.c]) return;
       const before = tx.c;
       applyCategory(tx);
       if (tx.c !== before) changed++;
@@ -837,17 +889,66 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     return changed;
   }
 
+  /* ---------- Transfers between own accounts ----------
+     The same amount leaving one account and arriving in another within 4 days, where one side names
+     the other bank or both look like transfers, is one transfer: both sides become "Umbuchung". */
+  const ACC_GENERIC = { GIROKONTO: 1, KONTO: 1, KREDITKARTE: 1, TAGESGELD: 1, TAGESGELDPOCKET: 1, SPARKONTO: 1, BARGELD: 1, MAIN: 1, ACCOUNT: 1, CURRENT: 1, POCKET: 1, BANK: 1, KARTE: 1, CARD: 1, GEMEINSAM: 1, JOINT: 1 };
+  function bankWords(acc) {
+    const w = normText(acc).split(' ').filter((x) => x.length >= 3 && !ACC_GENERIC[x] && !/^[\d.]+$/.test(x));
+    if (w.indexOf('C24') >= 0) w.push('CHECK24');
+    return w.map(catText);
+  }
+  const TRANSFER_RE = wordsRe(['TOPUP', 'TOP UP', 'TRANSFER', 'UEBERWEISUNG', 'ECHTZEITUEBERWEISUNG', 'UMBUCHUNG', 'UEBERTRAG']);
+  const txText = (t) => ' ' + catText([t.n, t.p, t.t].join(' ')) + ' ';
+  function looksLinked(a, b) {
+    const ta = txText(a), tb = txText(b), wa = bankWords(a.acc), wb = bankWords(b.acc);
+    if (wb.length && wordsRe(wb).test(ta)) return true;
+    if (wa.length && wordsRe(wa).test(tb)) return true;
+    return TRANSFER_RE.test(ta) && TRANSFER_RE.test(tb);
+  }
+  const dayNum = (iso) => Math.round(fromISO(iso).getTime() / 864e5);
+  function linkTransfers() {
+    const free = S.tx.filter((t) => !t.l && t.src !== 'm');
+    const ins = {};
+    free.forEach((t) => { if (t.a > 0) (ins[t.a] = ins[t.a] || []).push(t); });
+    let n = 0;
+    free.filter((t) => t.a < 0).sort((x, y) => x.d.localeCompare(y.d)).forEach((o) => {
+      const dn = dayNum(o.d);
+      const cands = (ins[-o.a] || []).filter((i) => !i.l && i.acc !== o.acc && Math.abs(dayNum(i.d) - dn) <= 4 && looksLinked(o, i));
+      if (!cands.length) return;
+      cands.sort((x, y) => Math.abs(dayNum(x.d) - dn) - Math.abs(dayNum(y.d) - dn));
+      const id = newId();
+      [o, cands[0]].forEach((t) => { t.l = id; t.c = 'umbuchung'; t.src = 't'; });
+      n++;
+    });
+    return n;
+  }
+  function partnerOf(t) { return t.l ? S.tx.filter((x) => x !== t && x.l === t.l)[0] || null : null; }
+  function unlink(t) {
+    const other = partnerOf(t);
+    delete t.l;
+    if (other) { delete other.l; if (other.src === 't') applyCategory(other); }
+  }
+  function cleanLinks() {
+    const count = {};
+    S.tx.forEach((t) => { if (t.l) count[t.l] = (count[t.l] || 0) + 1; });
+    S.tx.forEach((t) => {
+      if (t.l && count[t.l] !== 2) delete t.l;
+      if (!t.l && t.src === 't') applyCategory(t);
+    });
+  }
+
   /* ---------- Saving ---------- */
   function readLS(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
   function writeLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
   function save() {
-    const ok = writeLS(DATA, { v: 1, tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats });
+    const ok = writeLS(DATA, { v: 1, tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts });
     if (!ok) toast('Speichern auf diesem Gerät nicht möglich. Der Browserspeicher ist eventuell voll oder blockiert.');
     return ok;
   }
 
   function cleanData(raw) {
-    const out = { tx: [], budgets: {}, rules: [], cats: [] };
+    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false } };
     if (!raw || typeof raw !== 'object') return out;
     const ids = {};
     (Array.isArray(raw.cats) ? raw.cats : []).forEach((c, i) => {
@@ -868,7 +969,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       let id = typeof t.id === 'string' ? t.id.slice(0, 40) : newId();
       if (seen[id]) id = newId();
       seen[id] = true;
-      const tx = { id: id, d: t.d, a: a, n: clip(t.n, 80), p: clip(t.p, 240), t: clip(t.t, 40), acc: clip(t.acc, 40) || 'Konto', c: known[t.c] ? t.c : '', src: /^[mrfu]$/.test(t.src) ? t.src : 'r', k: typeof t.k === 'string' ? t.k.slice(0, 200) : '' };
+      const tx = { id: id, d: t.d, a: a, n: clip(t.n, 80), p: clip(t.p, 240), t: clip(t.t, 40), acc: clip(t.acc, 40) || 'Konto', c: known[t.c] ? t.c : '', src: /^[mrfut]$/.test(t.src) ? t.src : 'r', k: typeof t.k === 'string' ? t.k.slice(0, 200) : '' };
+      if (typeof t.l === 'string' && t.l) tx.l = t.l.slice(0, 40);
       if (!tx.k) tx.k = dupKey(tx.acc, tx);
       out.tx.push(tx);
     });
@@ -883,13 +985,25 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const k = normText(r.k).slice(0, 40);
       if (k) out.rules.push({ id: typeof r.id === 'string' ? r.id.slice(0, 40) : newId(), k: k, c: r.c });
     });
+    if (raw.bal && typeof raw.bal === 'object') {
+      Object.keys(raw.bal).forEach((k) => {
+        const b = raw.bal[k], name = clip(k, 40);
+        if (!name || !b || !/^\d{4}-\d{2}-\d{2}$/.test(b.d)) return;
+        const a = Math.round(Number(b.a));
+        if (isFinite(a) && Math.abs(a) < 1e11) out.bal[name] = { d: b.d, a: a };
+      });
+    }
+    if (raw.opts && typeof raw.opts === 'object') out.opts.cashManual = raw.opts.cashManual === true;
     return out;
   }
   function loadData(clean) {
     S.tx = clean.tx; S.budgets = clean.budgets; S.rules = clean.rules; S.cats = clean.cats;
+    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false };
     rebuildCats();
     rebuildRules();
     S.tx.forEach((tx) => { if (!tx.c) applyCategory(tx); });
+    cleanLinks();
+    linkTransfers();
   }
 
   /* ---------- Numbers ---------- */
@@ -987,6 +1101,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     purpose: ['verwendungszweck', 'paymentreference', 'buchungsdetails', 'zahlungsreferenz', 'reference', 'referenz', 'info', 'bemerkung', 'notiz', 'details'],
     type: ['umsatzart', 'umsatztyp', 'buchungsart', 'transactiontype', 'type', 'typ', 'vorgang', 'buchungstext'],
     status: ['status', 'state', 'buchungsstatus'],
+    balance: ['saldo', 'balance', 'kontostand', 'saldoeur', 'kontostandeur', 'saldonachbuchung', 'balanceeur'],
     fee: ['fee', 'fees', 'gebuehr', 'gebuehren']
   };
   function detectRoles(header) {
@@ -1018,6 +1133,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (m.purpose < 0) { const bt = h.indexOf('buchungstext'); if (bt >= 0 && !used[bt]) { used[bt] = true; m.purpose = bt; } }
     m.status = pick('status');
     m.fee = pick('fee');
+    m.balance = pick('balance');
     if (m.date < 0) {
       for (let j = 0; j < h.length && m.date < 0; j++) {
         if (!used[j] && /datum|date/.test(h[j])) { used[j] = true; m.date = j; }
@@ -1026,7 +1142,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     return m;
   }
   const hasAmount = (m) => m.amount >= 0 || (m.debit >= 0 && m.credit >= 0);
-  const blankMap = () => ({ date: -1, amount: -1, debit: -1, credit: -1, payee: -1, payeeOut: -1, payeeIn: -1, purpose: -1, type: -1, status: -1, fee: -1, invert: false });
+  const blankMap = () => ({ date: -1, amount: -1, debit: -1, credit: -1, payee: -1, payeeOut: -1, payeeIn: -1, purpose: -1, type: -1, status: -1, fee: -1, balance: -1, invert: false });
   // Second try for unfamiliar layouts: match parts of the column names
   function detectFuzzy(header) {
     const h = header.map(H);
@@ -1044,6 +1160,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     m.payee = find(/name|empf|auftrag|partner|haendler|merchant|payee|beguenstigt|zahlungspflicht|gegen|counterparty/, /iban|bic|nummer|kontoinhaber/);
     m.purpose = find(/zweck|text|notiz|beschreibung|memo|referenz|reference|details|info|kommentar|description|vermerk/);
     m.type = find(/art$|typ|type|vorgang/);
+    m.balance = find(/saldo|balance|kontostand/);
     return m;
   }
 
@@ -1103,7 +1220,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (has('ibankontoinhaber')) return 'Commerzbank';
     if (has('partnername') || (has('payee') && has('amounteur'))) return 'N26';
     if (has('starteddate') || has('completeddate')) return 'Revolut';
-    const accs = accounts();
+    const accs = accounts().filter((a) => a.n).sort((x, y) => y.n - x.n);
     if (accs.length) return accs[0].name;
     const base = String(fileName || '').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').replace(/\d{4,}/g, '').trim();
     return clip(base, 30) || 'Girokonto';
@@ -1189,7 +1306,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const imp = S.imp, map = imp.map, rows = imp.rows;
     const body = rows.slice(imp.headerIdx + 1);
     const cell = (r, j) => (j >= 0 && j < r.length ? r[j] : '');
-    const amountCols = [map.amount, map.debit, map.credit, map.fee].filter((j) => j >= 0);
+    const amountCols = [map.amount, map.debit, map.credit, map.fee, map.balance].filter((j) => j >= 0);
     const vals = [];
     body.slice(0, 400).forEach((r) => amountCols.forEach((j) => vals.push(cell(r, j))));
     const style = decimalStyle(vals, imp.delim);
@@ -1219,8 +1336,19 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const t = cell(r, map.type);
       if (/^[\s\-–.\/]*$/.test(p)) p = '';
       if (!n) n = nameFromText(p);
-      items.push({ d: d, a: a, n: clip(n, 80), p: clip(p, 240), t: clip(t, 40) });
+      const it = { d: d, a: a, n: clip(n, 80), p: clip(p, 240), t: clip(t, 40) };
+      if (map.balance >= 0) { const b = parseAmount(cell(r, map.balance), style); if (isFinite(b)) it.b = map.invert ? -b : b; }
+      items.push(it);
     });
+    // Balance after the newest booking, if the file has a balance column
+    imp.balance = null;
+    const withBal = items.filter((it) => typeof it.b === 'number');
+    if (withBal.length) {
+      const newest = withBal.reduce((m, it) => (it.d > m ? it.d : m), '');
+      const same = withBal.filter((it) => it.d === newest);
+      const desc = items.length > 1 && items[0].d > items[items.length - 1].d;
+      imp.balance = { d: newest, a: (desc ? same[0] : same[same.length - 1]).b };
+    }
     imp.items = items;
     imp.skipped = skipped;
     imp.pending = pending;
@@ -1244,9 +1372,24 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     imp.fresh = fresh;
     imp.dup = dup;
   }
+  // Balances an import brings: verified statement end balances, or a CSV balance column
+  function importBalances(imp) {
+    const list = [];
+    if (imp.kind === 'pdf') imp.statements.forEach((st) => { if (st.ok) list.push({ acc: st.acc, d: st.to, a: st.sum.Endsaldo }); });
+    else if (imp.balance) list.push({ acc: clip(imp.acc, 40) || 'Konto', d: imp.balance.d, a: imp.balance.a });
+    const best = {};
+    list.forEach((b) => { if (!best[b.acc] || b.d > best[b.acc].d) best[b.acc] = b; });
+    return Object.keys(best).map((k) => best[k]).filter((b) => {
+      const cur = S.bal[b.acc];
+      return !cur || b.d > cur.d || (b.d === cur.d && b.a !== cur.a);
+    });
+  }
   function commitImport() {
     const imp = S.imp;
     if (!imp) return;
+    const balBefore = JSON.parse(JSON.stringify(S.bal));
+    const balUpd = importBalances(imp);
+    balUpd.forEach((b) => { S.bal[b.acc] = { d: b.d, a: b.a }; });
     const added = [];
     imp.items.forEach((it) => {
       if (it.dup) return;
@@ -1254,19 +1397,27 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       S.tx.push(tx);
       added.push(tx);
     });
-    if (!save()) { S.tx = S.tx.filter((t) => added.indexOf(t) < 0); return; }
+    const linked = added.length ? linkTransfers() : 0;
+    if (!save()) { S.tx = S.tx.filter((t) => added.indexOf(t) < 0); S.bal = balBefore; cleanLinks(); return; }
     const last = added.reduce((m, t) => (t.d > m ? t.d : m), '');
     S.imp = null;
     $('csvInput').value = '';
     if (last) S.month = last.slice(0, 7);
-    importMsg(added.length ? txWord(added.length) + ' aus ' + imp.fileName + ' importiert.' : imp.kind === 'pdf' ? 'Alle Umsätze aus diesen Kontoauszügen sind schon vorhanden.' : 'Alle Umsätze aus dieser Datei sind schon vorhanden.');
+    importMsg(added.length ? txWord(added.length) + ' aus ' + imp.fileName + ' importiert.'
+      : balUpd.length ? 'Kontostand aktualisiert. Alle Umsätze waren schon vorhanden.'
+      : imp.kind === 'pdf' ? 'Alle Umsätze aus diesen Kontoauszügen sind schon vorhanden.' : 'Alle Umsätze aus dieser Datei sind schon vorhanden.');
     if (added.length) {
       setTab('overview');
       const open = added.filter((t) => t.src === 'f').length;
-      toast(txWord(added.length) + ' importiert' + (open ? ', ' + open + ' ohne Kategorie' : ''), 'Rückgängig', () => {
+      const parts = [txWord(added.length) + ' importiert'];
+      if (linked) parts.push(plural(linked, 'Umbuchung', 'Umbuchungen') + ' zwischen deinen Konten erkannt');
+      if (open) parts.push(open + ' ohne Kategorie');
+      toast(parts.join(', '), 'Rückgängig', () => {
         const ids = {};
         added.forEach((t) => { ids[t.id] = true; });
         S.tx = S.tx.filter((t) => !ids[t.id]);
+        S.bal = balBefore;
+        cleanLinks();
         save();
         render();
       });
@@ -1455,7 +1606,16 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       if (t.d < a.from) a.from = t.d;
       if (t.d > a.to) a.to = t.d;
     });
-    return Object.keys(m).map((k) => m[k]).sort((a, b) => b.to.localeCompare(a.to));
+    Object.keys(S.bal).forEach((k) => { if (!m[k]) m[k] = { name: k, n: 0, from: S.bal[k].d, to: S.bal[k].d }; });
+    return Object.keys(m).map((k) => m[k]).sort((a, b) => (b.n - a.n) || b.to.localeCompare(a.to));
+  }
+  // Current balance: the saved balance plus every booking after its day
+  function balanceOf(acc) {
+    const b = S.bal[acc];
+    if (!b) return null;
+    let a = b.a, last = b.d;
+    S.tx.forEach((t) => { if (t.acc === acc && t.d > b.d) { a += t.a; if (t.d > last) last = t.d; } });
+    return { a: a, d: last };
   }
 
   /* ---------- Toast ---------- */
@@ -1518,7 +1678,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const st = monthStats(S.month);
     const monthName = fMonthName.format(monthDate(S.month));
     const left = st.inc - st.out - st.sav;
-    $('heroLabel').textContent = left < 0 ? 'Mehr ausgegeben als eingenommen' : 'Übrig im ' + monthName;
+    $('heroLabel').textContent = (left < 0 ? 'Minus im ' : 'Übrig im ') + monthName;
     $('heroBig').textContent = fmt(left);
     $('heroBig').classList.toggle('neg', left < 0);
     $('heroCount').textContent = txWord(st.count);
@@ -1539,6 +1699,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 
     $('openHint').hidden = !st.open;
     $('openHintText').textContent = txWord(st.open);
+    renderBalances();
 
     // Spending categories
     const rows = CATS.filter((c) => c.kind === 'out' || c.kind === 'save').map((c) => {
@@ -1611,6 +1772,30 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('incHead').hidden = !incRows.length;
 
     renderChart();
+  }
+
+  function renderBalances() {
+    const ul = $('balList');
+    ul.textContent = '';
+    let total = 0, known = 0;
+    // Accounts with a balance, plus imported accounts still missing one; hand-entered-only accounts only once they have a balance
+    const accs = accounts().filter((a) => S.bal[a.name] || S.tx.some((t) => t.acc === a.name && t.src !== 'm'));
+    accs.forEach((a) => {
+      const b = balanceOf(a.name);
+      const li = el('li');
+      const btn = el('button', 'balrow');
+      btn.type = 'button';
+      btn.appendChild(el('span', 'bn', a.name));
+      btn.appendChild(el('span', 'ba num' + (b && b.a < 0 ? ' neg' : ''), b ? fmt(b.a) : '–'));
+      btn.appendChild(el('span', 'bs num' + (b ? '' : ' set'), b ? 'Stand ' + fDate.format(fromISO(b.d)) : 'Kontostand eintragen'));
+      btn.setAttribute('aria-label', a.name + ': ' + (b ? fmt(b.a) + ', Stand ' + fDate.format(fromISO(b.d)) + '. Kontostand ändern.' : 'kein Kontostand. Kontostand eintragen.'));
+      btn.addEventListener('click', () => openBal(a.name));
+      li.appendChild(btn);
+      ul.appendChild(li);
+      if (b) { total += b.a; known++; }
+    });
+    $('balList').hidden = !accs.length;
+    $('balTotal').textContent = known > 1 ? 'Gesamt ' + fmt(total) : '';
   }
 
   function renderChart() {
@@ -1802,27 +1987,42 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     al.textContent = '';
     accs.forEach((a) => {
       const li = el('li', 'acct');
-      const m = el('span', 'tmeta');
+      const m = el('button', 'tmeta');
+      m.type = 'button';
       m.appendChild(el('span', 'tname', a.name));
-      m.appendChild(el('small', 'num', txWord(a.n) + ' · ' + fDate.format(fromISO(a.from)) + ' bis ' + fDate.format(fromISO(a.to))));
+      m.appendChild(el('small', 'num', a.n ? txWord(a.n) + ' · ' + fDate.format(fromISO(a.from)) + ' bis ' + fDate.format(fromISO(a.to)) : 'Keine Umsätze'));
+      const b = balanceOf(a.name);
+      m.appendChild(el('small', 'num bal', b ? 'Kontostand ' + fmt(b.a) + ' · Stand ' + fDate.format(fromISO(b.d)) : 'Kontostand eintragen'));
+      m.addEventListener('click', () => openBal(a.name));
       li.appendChild(m);
       const del = el('button', 'del');
       del.type = 'button';
       del.innerHTML = ICON.x;
       del.setAttribute('aria-label', 'Konto ' + a.name + ' mit allen Umsätzen löschen');
       del.addEventListener('click', () => {
-        if (!confirm('Alle ' + txWord(a.n) + ' von „' + a.name + '“ löschen?')) return;
+        if (!confirm('„' + a.name + '“ ' + (a.n ? 'mit allen ' + txWord(a.n) + ' ' : '') + 'löschen?')) return;
         const removed = S.tx.filter((t) => t.acc === a.name);
+        const oldBal = S.bal[a.name];
         S.tx = S.tx.filter((t) => t.acc !== a.name);
+        delete S.bal[a.name];
+        cleanLinks();
         save();
         render();
-        toast('„' + a.name + '“ gelöscht', 'Rückgängig', () => { S.tx = S.tx.concat(removed); save(); render(); });
+        toast('„' + a.name + '“ gelöscht', 'Rückgängig', () => {
+          S.tx = S.tx.concat(removed);
+          if (oldBal) S.bal[a.name] = oldBal;
+          cleanLinks();
+          linkTransfers();
+          save();
+          render();
+        });
       });
       li.appendChild(del);
       al.appendChild(li);
     });
     al.hidden = !accs.length;
     $('accountEmpty').hidden = !!accs.length;
+    $('cashManual').checked = !!S.opts.cashManual;
 
     // Rules
     const rl = $('ruleList');
@@ -1884,6 +2084,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     else if (!imp.items.length) notes.push('Keine Umsätze erkannt. Öffne „Spalten anpassen“ und wähle Datum und Betrag.');
     else if (imp.guessed === 'values') notes.push('Keine Spaltenüberschriften gefunden. Bitte prüfe die Vorschau und die Spalten.');
     else if (imp.guessed === 'names') notes.push('Unbekanntes Format: Die Spalten wurden anhand ihrer Namen geschätzt. Bitte prüfe die Vorschau.');
+    if (!isPdf && imp.balance) notes.push('Kontostand laut Datei: ' + fmt(imp.balance.a) + ' am ' + fDate.format(fromISO(imp.balance.d)) + '.');
     $('pvRange').textContent = notes.join(' ');
     const pv = $('pvList');
     pv.textContent = '';
@@ -1898,8 +2099,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       pv.appendChild(li);
     });
     pv.hidden = !pv.childNodes.length;
-    $('pvImport').disabled = !imp.fresh;
-    $('pvImport').textContent = imp.fresh ? txWord(imp.fresh) + ' importieren' : 'Nichts Neues zu importieren';
+    const balUpd = importBalances(imp);
+    $('pvImport').disabled = !imp.fresh && !balUpd.length;
+    $('pvImport').textContent = imp.fresh ? txWord(imp.fresh) + ' importieren' : balUpd.length ? 'Kontostand übernehmen' : 'Nichts Neues zu importieren';
     if (isPdf) return;
     const m = imp.map;
     fillColSelect($('mDate'), m.date, m.date < 0 ? [['-1', '– bitte wählen –']] : null);
@@ -1998,6 +2200,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const purpose = [t.t, t.p].filter(Boolean).join(' · ');
     $('shPurpose').textContent = purpose;
     $('shPurpose').hidden = !purpose;
+    const other = partnerOf(t);
+    $('shLink').hidden = !other;
+    if (other) $('shLink').textContent = 'Umbuchung zwischen deinen Konten, zählt nicht als Ausgabe oder Einnahme. Gegenbuchung: ' + other.acc + ', ' + fDayShort.format(fromISO(other.d)) + ', ' + fmtS(other.a) + '. Wählst du eine andere Kategorie, wird die Verknüpfung gelöst.';
     const box = $('shChips');
     box.textContent = '';
     const groups = [['Ausgaben', 'out'], ['Sparen', 'save'], ['Einnahmen', 'in'], ['Nicht zählen', 'skip']];
@@ -2014,6 +2219,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         b.appendChild(document.createTextNode(c.name));
         b.setAttribute('aria-pressed', String(c.id === t.c));
         b.addEventListener('click', () => {
+          if (t.l) { unlink(t); $('shLink').hidden = true; }
           t.c = c.id;
           t.src = 'm';
           save();
@@ -2062,16 +2268,24 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     hideDialog($('txSheet'));
     sheetTx = null;
     const idx = S.tx.indexOf(t);
+    if (t.l) unlink(t);
     S.tx = S.tx.filter((x) => x !== t);
     save();
     render();
-    toast('Umsatz gelöscht', 'Rückgängig', () => { S.tx.splice(Math.min(idx, S.tx.length), 0, t); save(); render(); });
+    toast('Umsatz gelöscht', 'Rückgängig', () => {
+      S.tx.splice(Math.min(idx, S.tx.length), 0, t);
+      if (t.src === 't') applyCategory(t);
+      linkTransfers();
+      save();
+      render();
+    });
   }
 
   // Add sheet
-  let addKind = 'out';
+  let addKind = 'out', addCatTouched = false;
   function openAdd() {
     addKind = 'out';
+    addCatTouched = false;
     $('addAmt').value = '';
     $('addName').value = '';
     const t = today();
@@ -2080,6 +2294,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('addErr').hidden = true;
     fillAddCats();
     renderAddKind();
+    renderCashHint();
     showDialog($('addSheet'));
     setTimeout(() => { try { $('addAmt').focus(); } catch (e) {} }, 60);
   }
@@ -2089,6 +2304,26 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const kinds = addKind === 'in' ? ['in', 'skip'] : ['out', 'save', 'skip'];
     kinds.forEach((k) => CATS.filter((c) => c.kind === k).forEach((c) => option(sel, c.id, c.name)));
     sel.value = addKind === 'in' ? 'einnahmen' : 'sonstiges';
+  }
+  // Suggest a category from the description until the person picks one
+  function suggestAddCat() {
+    if (addCatTouched) return;
+    const name = $('addName').value.trim();
+    const sel = $('addCat');
+    const fallback = addKind === 'in' ? 'einnahmen' : 'sonstiges';
+    const c = name ? categorize({ n: name, p: '', t: '', a: addKind === 'in' ? 1 : -1 })[0] : fallback;
+    sel.value = Array.prototype.some.call(sel.options, (o) => o.value === c) ? c : fallback;
+  }
+  function renderCashHint() {
+    $('addCashHint').hidden = S.opts.cashManual || addKind !== 'out' || !/^\s*(bargeld|bar|cash|portemonnaie|geldbeutel)\s*$/i.test($('addAcc').value);
+  }
+  function setCashManual(on) {
+    S.opts.cashManual = !!on;
+    rebuildCats();
+    rebuildRules();
+    save();
+    render();
+    toast(on ? 'Abhebungen am Automaten zählen jetzt nicht mehr als Ausgabe.' : 'Abhebungen am Automaten zählen wieder als Ausgabe.');
   }
   function renderAddKind() {
     $$('#addSheet .seg button').forEach((b) => b.setAttribute('aria-checked', String(b.getAttribute('data-kind') === addKind)));
@@ -2108,6 +2343,42 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     S.month = d.slice(0, 7);
     render();
     toast(fmtS(tx.a) + ' gespeichert', 'Rückgängig', () => { S.tx = S.tx.filter((x) => x.id !== id); save(); render(); });
+  }
+
+  let balAcc = '';
+  function openBal(acc) {
+    balAcc = acc;
+    const cur = balanceOf(acc);
+    $('balSheetTitle').textContent = 'Kontostand: ' + acc;
+    $('balAmt').value = cur ? String(Math.abs(cur.a) / 100).replace('.', ',') : '';
+    $('balNeg').checked = !!cur && cur.a < 0;
+    $('balDate').value = cur ? cur.d : today();
+    $('balRemove').hidden = !S.bal[acc];
+    $('balErr').hidden = true;
+    showDialog($('balSheet'));
+  }
+  function saveBal() {
+    const raw = $('balAmt').value.trim();
+    const neg = /^-/.test(raw) || $('balNeg').checked;
+    const v = parseUserAmount(raw.replace(/^-/, ''));
+    const d = $('balDate').value;
+    const err = $('balErr');
+    if (!raw || !isFinite(v)) { err.textContent = 'Bitte einen Betrag eingeben, z. B. 119,23.'; err.hidden = false; return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { err.textContent = 'Bitte ein Datum wählen.'; err.hidden = false; return; }
+    const before = S.bal[balAcc];
+    S.bal[balAcc] = { d: d, a: neg ? -v : v };
+    if (!save()) { if (before) S.bal[balAcc] = before; else delete S.bal[balAcc]; return; }
+    hideDialog($('balSheet'));
+    render();
+    toast('Kontostand für ' + balAcc + ' gespeichert');
+  }
+  function removeBal() {
+    const before = S.bal[balAcc], acc = balAcc;
+    delete S.bal[acc];
+    save();
+    hideDialog($('balSheet'));
+    render();
+    if (before) toast('Kontostand entfernt', 'Rückgängig', () => { S.bal[acc] = before; save(); render(); });
   }
 
   function showDialog(d) {
@@ -2166,7 +2437,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function backupMsg(text) { const e = $('backupMsg'); e.textContent = text; e.hidden = false; }
   function exportBackup() {
     if (!S.tx.length && !S.rules.length && !Object.keys(S.budgets).length) { backupMsg('Noch keine Daten zum Sichern.'); return; }
-    const json = JSON.stringify({ app: 'budget', version: 1, exportedAt: new Date().toISOString(), data: { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats } });
+    const json = JSON.stringify({ app: 'budget', version: 1, exportedAt: new Date().toISOString(), data: { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts } });
     const name = 'budget-backup-' + today() + '.json';
     let file = null;
     try { file = new File([json], name, { type: 'application/json' }); } catch (e) { file = null; }
@@ -2195,7 +2466,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       if (!data) { backupMsg('Diese Datei ist kein Budget-Backup.'); return; }
       const clean = cleanData(data);
       if (!confirm('Backup mit ' + txWord(clean.tx.length) + ' laden? Die Daten auf diesem Gerät werden ersetzt.')) return;
-      const before = { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats };
+      const before = { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts };
       loadData(clean);
       if (!save()) { loadData(before); return; }
       S.month = latestMonth();
@@ -2259,9 +2530,19 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   $('shRule').addEventListener('change', (e) => { $('shRuleKw').disabled = !e.target.checked; });
   $('txSheet').addEventListener('cancel', (e) => { e.preventDefault(); closeTxSheet(); });
   $('txSheet').addEventListener('click', (e) => { if (e.target === $('txSheet')) closeTxSheet(); });
-  $$('#addSheet .seg button').forEach((b) => b.addEventListener('click', () => { addKind = b.getAttribute('data-kind'); renderAddKind(); fillAddCats(); }));
+  $$('#addSheet .seg button').forEach((b) => b.addEventListener('click', () => { addKind = b.getAttribute('data-kind'); addCatTouched = false; renderAddKind(); fillAddCats(); suggestAddCat(); renderCashHint(); }));
   $('addSave').addEventListener('click', saveAdd);
   $('addCancel').addEventListener('click', () => hideDialog($('addSheet')));
+  $('addAcc').addEventListener('input', renderCashHint);
+  $('addName').addEventListener('input', suggestAddCat);
+  $('addCat').addEventListener('change', () => { addCatTouched = true; });
+  $('addCashOn').addEventListener('click', () => { setCashManual(true); renderCashHint(); fillAddCats(); });
+  $('cashManual').addEventListener('change', (e) => setCashManual(e.target.checked));
+  $('balSave').addEventListener('click', saveBal);
+  $('balRemove').addEventListener('click', removeBal);
+  $('balCancel').addEventListener('click', () => hideDialog($('balSheet')));
+  $('balSheet').addEventListener('click', (e) => { if (e.target === $('balSheet')) hideDialog($('balSheet')); });
+  $('balForm').addEventListener('submit', (e) => { e.preventDefault(); saveBal(); });
   $('addSheet').addEventListener('click', (e) => { if (e.target === $('addSheet')) hideDialog($('addSheet')); });
   $('addForm').addEventListener('submit', (e) => { e.preventDefault(); saveAdd(); });
 
@@ -2279,7 +2560,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     e.target.value = '';
   });
   $('wipeBtn').addEventListener('click', () => {
-    if (!confirm('Wirklich alle Umsätze, Budgets, Regeln und eigenen Kategorien löschen? Das lässt sich nicht rückgängig machen. Speichere vorher ein Backup, wenn du unsicher bist.')) return;
+    if (!confirm('Wirklich alle Umsätze, Kontostände, Budgets, Regeln und eigenen Kategorien löschen? Das lässt sich nicht rückgängig machen. Speichere vorher ein Backup, wenn du unsicher bist.')) return;
     loadData(cleanData(null));
     try { localStorage.removeItem(DATA); } catch (e) {}
     S.month = thisMonth();

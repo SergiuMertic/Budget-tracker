@@ -8,13 +8,14 @@ A small offline web app to see where your money goes. Import your bank statement
 - Import CSV exports from German online banking (semicolon or comma, German or English number format, UTF-8 or Windows encoding)
 - Columns are detected automatically from the header row; if a bank uses unusual names, you can pick the columns yourself in the preview
 - Duplicates are skipped, so you can import overlapping date ranges again; pending (vorgemerkt) transactions are left out until they are booked
-- Several accounts side by side (for example Girokonto and Kreditkarte)
+- Several accounts side by side (for example Girokonto and Revolut), each with its current balance: taken from C24 statements or a CSV balance column, or entered by hand
+- Transfers between your own accounts are found automatically (same amount out of one account and into another within 4 days) and are not counted twice
 - Automatic categories for common German merchants (REWE, Aldi, dm, Shell, Telekom, Netflix and many more)
 - Your own rules: change a category once and let the app remember it for every transaction with the same text
 - Monthly overview: income, spending, saving and what is left, per category with progress bars
 - Monthly budgets and a savings goal, with a one-tap suggestion from your average of the last 3 months
 - 6-month history chart
-- Add cash transactions by hand
+- Add cash transactions by hand; an option makes ATM withdrawals not count as spending, so cash is not counted twice
 - Transfers between your own accounts can be marked as "not counted"
 - Backup to a file and restore from it
 - Light and dark mode, German interface
