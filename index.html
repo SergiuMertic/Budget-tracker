@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Budget</title>
-<meta name="description" content="Kontoumsätze per CSV importieren, Ausgaben nach Kategorien sehen und Monatsbudgets planen. Funktioniert offline.">
+<meta name="description" content="Kontoauszüge (PDF von C24 oder CSV) importieren, Ausgaben nach Kategorien sehen und Monatsbudgets planen. Funktioniert offline.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Budget">
@@ -326,6 +326,12 @@ label.lbl { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: v
 .pv .pn b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pv .pn small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 details.map { border: 1px solid var(--well-line); border-radius: 14px; padding: 0 12px; }
+.stmts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.stmts li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; font-size: 14px; line-height: 1.4; }
+.stmts li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; background: var(--in-bar); }
+.stmts li.warn::before { background: var(--warn-bar); }
+.stmts li.bad::before { background: var(--over-bar); }
+.stmts small { display: block; color: var(--muted); font-size: 13px; }
 details.map summary { cursor: pointer; padding: 12px 0; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
 details.map summary::-webkit-details-marker { display: none; }
 details.map summary::after { content: "+"; color: var(--muted); }
@@ -425,9 +431,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   <!-- Overview -->
   <section class="view" id="view-overview" role="tabpanel" aria-labelledby="tab-overview">
     <div class="card welcome" id="welcome" hidden>
-      <h2>Lade deine Kontoumsätze</h2>
-      <p class="card-text">Exportiere deine Umsätze im Online-Banking als CSV-Datei und wähle sie hier aus. Die App sortiert sie in Kategorien und zeigt dir, wohin dein Geld geht.</p>
-      <button type="button" class="primary" data-action="pick-csv">CSV-Datei auswählen</button>
+      <h2>Lade deine Kontoauszüge</h2>
+      <p class="card-text">Wähle deine PDF-Kontoauszüge der C24 Bank oder eine CSV-Datei aus dem Online-Banking. Die App sortiert die Umsätze in Kategorien und zeigt dir, wohin dein Geld geht.</p>
+      <button type="button" class="primary" data-action="pick-csv">Kontoauszug auswählen</button>
       <button type="button" class="textbtn" data-action="add-tx">Oder einen Umsatz von Hand eintragen</button>
     </div>
 
@@ -543,10 +549,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   <!-- Data -->
   <section class="view" id="view-data" role="tabpanel" aria-labelledby="tab-data" hidden>
     <div class="card" id="importCard">
-      <h2>CSV importieren</h2>
-      <p class="card-text">Exportiere im Online-Banking deine Umsätze als CSV-Datei (meist unter Umsätze, dann Exportieren) und wähle sie hier aus. Mehrere Konten und wiederholte Importe sind möglich: Umsätze, die schon da sind, werden erkannt und übersprungen.</p>
-      <button type="button" class="primary" data-action="pick-csv">CSV-Datei auswählen</button>
-      <input type="file" id="csvInput" class="sr-only" accept=".csv,.CSV,.txt,text/csv,text/comma-separated-values,text/plain,application/vnd.ms-excel" tabindex="-1" aria-hidden="true">
+      <h2>Umsätze importieren</h2>
+      <p class="card-text">Wähle PDF-Kontoauszüge der C24 Bank (gern mehrere auf einmal) oder eine CSV-Datei aus dem Online-Banking. Umsätze, die schon da sind, werden erkannt und übersprungen. Die Dateien werden nur auf diesem Gerät gelesen.</p>
+      <button type="button" class="primary" data-action="pick-csv" id="pickBtn">Kontoauszug oder CSV auswählen</button>
+      <input type="file" id="csvInput" class="sr-only" multiple accept=".pdf,.PDF,application/pdf,.csv,.CSV,.txt,text/csv,text/comma-separated-values,text/plain,application/vnd.ms-excel" tabindex="-1" aria-hidden="true">
       <p class="card-msg" id="importMsg" role="status" hidden></p>
     </div>
 
@@ -558,7 +564,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         <div class="stat"><b class="num" id="pvSkip">0</b><span>übersprungen</span></div>
       </div>
       <p class="card-text num" id="pvRange"></p>
-      <label class="lbl">Konto
+      <ul class="stmts" id="pvStmts" hidden></ul>
+      <label class="lbl" id="pvAccWrap">Konto
         <input type="text" class="field" id="pvAcc" maxlength="40" list="accList" autocomplete="off">
       </label>
       <datalist id="accList"></datalist>
@@ -662,7 +669,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '1';
+  const APP_VERSION = '2';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -746,17 +753,17 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     ['sparen', '', 'TRADE REPUBLIC', 'TRADEREPUBLIC', 'SCALABLE', 'SPARPLAN', 'TAGESGELD', 'FESTGELD', 'SPARKONTO', 'BAUSPAR', 'BAUSPARVERTRAG', 'BAUSPARKASSE', 'WERTPAPIERKAUF', 'ETF'],
     ['umbuchung', '', 'UMBUCHUNG', 'UEBERTRAG', 'KONTOUEBERTRAG', 'EIGENE KONTEN', 'EIGENES KONTO', 'KREDITKARTENABRECHNUNG', 'KREDITKARTE ABRECHNUNG', 'AUSGLEICH KREDITKARTE', 'KREDITKARTENAUSGLEICH'],
     ['gehalt', '+', 'LOHN', 'GEHALT', 'BEZUEGE', 'ARBEITSENTGELT', 'LOHNABRECHNUNG', 'GEHALTSZAHLUNG', 'ENTGELTABRECHNUNG'],
-    ['einnahmen', '+', 'KINDERGELD', 'FAMILIENKASSE', 'BAREINZAHLUNG', 'EINZAHLUNG', 'ZINSEN', 'ZINSGUTSCHRIFT', 'HABENZINSEN'],
+    ['einnahmen', '+', 'KINDERGELD', 'FAMILIENKASSE', 'BAREINZAHLUNG', 'BARGELDEINZAHLUNG', 'EINZAHLUNG', 'ZINSEN', 'ZINSGUTSCHRIFT', 'HABENZINSEN', 'TRINKGELD', 'TRINKGELDZAHLUNG', 'SMILY', 'CASHBACK', 'PRAEMIE'],
     ['handy', '', 'ALDI TALK', 'TELEKOM', 'VODAFONE', 'O2', 'TELEFONICA', '1&1', '1UND1', 'CONGSTAR', 'FREENET', 'MOBILCOM', 'WINSIM', 'FRAENK', 'PYUR', 'DEUTSCHE GLASFASER', 'NETCOLOGNE', 'LEBARA', 'LYCAMOBILE'],
-    ['abos', '', 'AMAZON PRIME', 'PRIME VIDEO', 'NETFLIX', 'SPOTIFY', 'DISNEY', 'APPLE.COM', 'APPLE COM BILL', 'ITUNES', 'GOOGLE PLAY', 'GOOGLE YOUTUBE', 'YOUTUBE', 'GOOGLE ONE', 'DAZN', 'SKY', 'AUDIBLE', 'ANTHROPIC', 'CLAUDE.AI', 'OPENAI', 'CHATGPT', 'MICROSOFT', 'ADOBE', 'PLAYSTATION', 'NINTENDO', 'STEAM', 'XBOX', 'PATREON', 'TWITCH', 'CANVA', 'DROPBOX', 'ICLOUD', 'WAIPU', 'JOYN', 'PARAMOUNT', 'CRUNCHYROLL', 'DEEZER', 'TIDAL'],
-    ['wohnen', '', 'MIETE', 'KALTMIETE', 'WARMMIETE', 'NEBENKOSTEN', 'HAUSGELD', 'VONOVIA', 'VIVAWEST', 'LEG IMMOBILIEN', 'LEG WOHNEN', 'STADTWERKE', 'E.ON', 'EON', 'VATTENFALL', 'RWE', 'EWE', 'ENBW', 'GELSENWASSER', 'ENTEGA', 'TIBBER', 'OCTOPUS ENERGY', 'LICHTBLICK', 'YELLO', 'EPRIMO', 'STROM', 'BEITRAGSSERVICE', 'RUNDFUNK', 'ARD ZDF'],
-    ['lebensmittel', '', 'REWE', 'EDEKA', 'E CENTER', 'ALDI', 'LIDL', 'KAUFLAND', 'NETTO', 'PENNY', 'NORMA', 'GLOBUS', 'MARKTKAUF', 'TEGUT', 'HIT', 'NAH UND GUT', 'BIOMARKT', 'DENNS', 'ALNATURA', 'BAECKEREI', 'BACKSHOP', 'METZGEREI', 'FLEISCHEREI', 'GETRAENKE', 'TRINKGUT', 'HOL AB', 'PICNIC', 'KNUSPR'],
+    ['abos', '', 'AMAZON PRIME', 'PRIME VIDEO', 'NETFLIX', 'SPOTIFY', 'DISNEY', 'APPLE.COM', 'APPLE COM BILL', 'ITUNES', 'GOOGLE PLAY', 'GOOGLE YOUTUBE', 'YOUTUBE', 'YOUTUBEPREMIUM', 'YOUTUBE PREMIUM', 'GOOGLE ONE', 'AMZNPRIME', 'PROTV', 'PRO TV', 'VOYO', 'SCHUFA', 'CONTENT PAKET', 'DAZN', 'SKY', 'AUDIBLE', 'ANTHROPIC', 'CLAUDE.AI', 'OPENAI', 'CHATGPT', 'MICROSOFT', 'ADOBE', 'PLAYSTATION', 'NINTENDO', 'STEAM', 'XBOX', 'PATREON', 'TWITCH', 'CANVA', 'DROPBOX', 'ICLOUD', 'WAIPU', 'JOYN', 'PARAMOUNT', 'CRUNCHYROLL', 'DEEZER', 'TIDAL'],
+    ['wohnen', '', 'MIETE', 'KALTMIETE', 'WARMMIETE', 'NEBENKOSTEN', 'HAUSGELD', 'VONOVIA', 'ANNINGTON', 'VIVAWEST', 'OSTROM', 'LEG IMMOBILIEN', 'LEG WOHNEN', 'STADTWERKE', 'E.ON', 'EON', 'VATTENFALL', 'RWE', 'EWE', 'ENBW', 'GELSENWASSER', 'ENTEGA', 'TIBBER', 'OCTOPUS ENERGY', 'LICHTBLICK', 'YELLO', 'EPRIMO', 'STROM', 'BEITRAGSSERVICE', 'RUNDFUNK', 'ARD ZDF'],
+    ['lebensmittel', '', 'REWE', 'EDEKA', 'E CENTER', 'ALDI', 'LIDL', 'KAUFLAND', 'NETTO', 'PENNY', 'NORMA', 'GLOBUS', 'MARKTKAUF', 'TEGUT', 'HIT', 'NAH UND GUT', 'BIOMARKT', 'DENNS', 'ALNATURA', 'BAECKEREI', 'BAECKER', 'BACKSTUBE', 'BACKSHOP', 'METZGEREI', 'FLEISCHEREI', 'GETRAENKE', 'TRINKGUT', 'HOL AB', 'PICNIC', 'KNUSPR'],
     ['drogerie', '', 'DROGERIE', 'DM', 'ROSSMANN', 'BUDNI', 'APOTHEKE', 'DOCMORRIS', 'SHOP APOTHEKE', 'ARZT', 'ZAHNARZT', 'PRAXIS', 'OPTIK', 'FIELMANN', 'APOLLO', 'PHYSIOTHERAPIE'],
     ['essen', '', 'LIEFERANDO', 'UBER EATS', 'WOLT', 'MCDONALDS', 'MC DONALDS', 'BURGER KING', 'KFC', 'SUBWAY', 'STARBUCKS', 'VAPIANO', 'NORDSEE', 'PIZZA', 'PIZZERIA', 'RESTAURANT', 'IMBISS', 'DOENER', 'KEBAB', 'GRILL', 'CAFE', 'BISTRO', 'SUSHI', 'DOMINOS', 'CALL A PIZZA', 'BACKWERK'],
-    ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE'],
-    ['versicherung', '', 'VERSICHERUNG', 'VERSICHERUNGEN', 'HUK', 'HUK24', 'HUK COBURG', 'ALLIANZ', 'ERGO', 'AXA', 'R+V', 'DEVK', 'GENERALI', 'COSMOSDIREKT', 'HANSEMERKUR', 'BARMENIA', 'GOTHAER', 'SIGNAL IDUNA', 'WGV', 'VHV', 'ZURICH', 'HDI', 'ARAG', 'PROVINZIAL', 'LVM', 'NUERNBERGER', 'DEBEKA', 'CONTINENTALE'],
+    ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE', 'WASCHANLAGE', 'WASCHPARK', 'PRIMWASH', 'HAUPTZOLLAMT'],
+    ['versicherung', '', 'VERSICHERUNG', 'VERSICHERUNGEN', 'RECHTSSCHUTZ', 'ADAM RIESE', 'BAVARIADIREKT', 'HUK', 'HUK24', 'HUK COBURG', 'ALLIANZ', 'ERGO', 'AXA', 'R+V', 'DEVK', 'GENERALI', 'COSMOSDIREKT', 'HANSEMERKUR', 'BARMENIA', 'GOTHAER', 'SIGNAL IDUNA', 'WGV', 'VHV', 'ZURICH', 'HDI', 'ARAG', 'PROVINZIAL', 'LVM', 'NUERNBERGER', 'DEBEKA', 'CONTINENTALE'],
     ['shopping', '', 'AMAZON', 'AMZN', 'ZALANDO', 'OTTO GMBH', 'OTTO.DE', 'EBAY', 'ABOUT YOU', 'H&M', 'H+M', 'PRIMARK', 'C&A', 'ZARA', 'DEICHMANN', 'MEDIAMARKT', 'MEDIA MARKT', 'SATURN', 'TEMU', 'SHEIN', 'ALIEXPRESS', 'IKEA', 'OBI', 'BAUHAUS', 'HORNBACH', 'TOOM', 'HAGEBAU', 'ACTION', 'TEDI', 'KIK', 'WOOLWORTH', 'DECATHLON', 'THALIA', 'CYBERPORT', 'NOTEBOOKSBILLIGER', 'ALTERNATE', 'JYSK', 'POCO', 'ROLLER', 'KLARNA'],
-    ['freizeit', '', 'MCFIT', 'FITNESS', 'FITNESSSTUDIO', 'CLEVER FIT', 'FITX', 'URBAN SPORTS', 'JOHN REED', 'INJOY', 'KINO', 'CINEMAXX', 'UCI', 'CINESTAR', 'EVENTIM', 'TICKETMASTER', 'BOWLING', 'SCHWIMMBAD', 'FREIBAD', 'MUSEUM', 'ZOO', 'THEATER'],
+    ['freizeit', '', 'MCFIT', 'MY GYM', 'MYGYM', 'GYM', 'FITNESS', 'FITNESSSTUDIO', 'CLEVER FIT', 'FITX', 'URBAN SPORTS', 'JOHN REED', 'INJOY', 'KINO', 'CINEMAXX', 'UCI', 'CINESTAR', 'EVENTIM', 'TICKETMASTER', 'BOWLING', 'SCHWIMMBAD', 'FREIBAD', 'MUSEUM', 'ZOO', 'THEATER'],
     ['bargeld', '-', 'GELDAUTOMAT', 'BARGELDAUSZAHLUNG', 'BARGELD', 'BARAUSZAHLUNG', 'AUSZAHLUNG GELDAUTOMAT', 'CASH WITHDRAWAL', 'ATM'],
     ['spenden', '', 'SPENDE', 'SPENDEN', 'KOLLEKTE', 'KIRCHE', 'KIRCHENGEMEINDE', 'ZEHNTE', 'UNICEF', 'CARITAS', 'DIAKONIE', 'WWF', 'GREENPEACE', 'AERZTE OHNE GRENZEN', 'SOS KINDERDORF'],
     ['gebuehren', '-', 'KONTOFUEHRUNG', 'KONTOFUEHRUNGSENTGELT', 'KONTOFUEHRUNGSGEBUEHR', 'RECHNUNGSABSCHLUSS', 'ABSCHLUSS', 'ENTGELT', 'ENTGELTE', 'GEBUEHR', 'GEBUEHREN', 'SOLLZINSEN', 'DISPOZINSEN', 'ZINSEN'],
@@ -771,11 +778,14 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       .replace(/[^A-Z0-9&+.]+/g, ' ')
       .replace(/\s+/g, ' ').trim();
   }
+  function catText(s) {
+    return normText(s).replace(/(^|\s)([A-Z]{4,})(?=\d)/g, '$1$2 ');
+  }
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   function wordsRe(words) {
     return new RegExp('(?:^|[^A-Z0-9])(?:' + words.map(esc).join('|') + ')(?![A-Z0-9])');
   }
-  const DEFAULT_COMPILED = DEFAULT_RULES.map((r) => ({ c: r[0], s: r[1], re: wordsRe(r.slice(2).map(normText)) }));
+  const DEFAULT_COMPILED = DEFAULT_RULES.map((r) => ({ c: r[0], s: r[1], re: wordsRe(r.slice(2).map(catText)) }));
 
   /* ---------- State ---------- */
   const S = {
@@ -799,12 +809,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     CATS.forEach((c) => { CAT[c.id] = c; });
   }
   function rebuildRules() {
-    USER_COMPILED = S.rules.filter((r) => CAT[r.c]).map((r) => ({ c: r.c, re: wordsRe([r.k]) }));
+    USER_COMPILED = S.rules.filter((r) => CAT[r.c]).map((r) => ({ c: r.c, re: wordsRe([catText(r.k)]) }));
   }
   const kindOf = (id) => (CAT[id] ? CAT[id].kind : 'out');
 
   function categorize(tx) {
-    const text = normText([tx.n, tx.p, tx.t].join(' '));
+    const text = catText([tx.n, tx.p, tx.t].join(' '));
     for (let i = 0; i < USER_COMPILED.length; i++) {
       if (USER_COMPILED[i].re.test(text)) return [USER_COMPILED[i].c, 'u'];
     }
@@ -1218,13 +1228,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
   function markDuplicates() {
     const imp = S.imp;
-    const acc = clip(imp.acc, 40) || 'Konto';
     const have = {};
     S.tx.forEach((t) => { have[t.k] = (have[t.k] || 0) + 1; });
     const seen = {};
     let fresh = 0, dup = 0;
     imp.items.forEach((it) => {
-      const k = dupKey(acc, it);
+      const k = dupKey(clip(it.acc || imp.acc, 40) || 'Konto', it);
       it.k = k;
       seen[k] = (seen[k] || 0) + 1;
       it.dup = seen[k] <= (have[k] || 0);
@@ -1238,11 +1247,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function commitImport() {
     const imp = S.imp;
     if (!imp) return;
-    const acc = clip(imp.acc, 40) || 'Konto';
     const added = [];
     imp.items.forEach((it) => {
       if (it.dup) return;
-      const tx = { id: newId(), d: it.d, a: it.a, n: it.n, p: it.p, t: it.t, acc: acc, c: it.c, src: it.src, k: it.k };
+      const tx = { id: newId(), d: it.d, a: it.a, n: it.n, p: it.p, t: it.t, acc: clip(it.acc || imp.acc, 40) || 'Konto', c: it.c, src: it.src, k: it.k };
       S.tx.push(tx);
       added.push(tx);
     });
@@ -1251,7 +1259,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     S.imp = null;
     $('csvInput').value = '';
     if (last) S.month = last.slice(0, 7);
-    importMsg(added.length ? txWord(added.length) + ' aus ' + imp.fileName + ' importiert.' : 'Alle Umsätze aus dieser Datei sind schon vorhanden.');
+    importMsg(added.length ? txWord(added.length) + ' aus ' + imp.fileName + ' importiert.' : imp.kind === 'pdf' ? 'Alle Umsätze aus diesen Kontoauszügen sind schon vorhanden.' : 'Alle Umsätze aus dieser Datei sind schon vorhanden.');
     if (added.length) {
       setTab('overview');
       const open = added.filter((t) => t.src === 'f').length;
@@ -1264,6 +1272,174 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       });
     } else render();
   }
+  /* ---------- PDF statements (C24 Bank) ----------
+     The PDF is read on this device with pdf.js (bundled in vendor/pdfjs, loaded only when needed). */
+  let pdfjsLib = null;
+  async function loadPdfJs() {
+    if (pdfjsLib) return pdfjsLib;
+    const lib = await import('./vendor/pdfjs/pdf.min.mjs');
+    lib.GlobalWorkerOptions.workerSrc = new URL('vendor/pdfjs/pdf.worker.min.mjs', document.baseURI).href;
+    pdfjsLib = lib;
+    return lib;
+  }
+  // Text items of one page grouped into lines (top to bottom), each with its pieces left to right
+  function pageLines(items) {
+    const rows = [];
+    items.forEach((it) => {
+      if (!it || typeof it.str !== 'string' || !it.str.trim() || !it.transform) return;
+      const x = it.transform[4], y = it.transform[5];
+      let row = null;
+      for (let i = 0; i < rows.length; i++) { if (Math.abs(rows[i].y - y) < 2) { row = rows[i]; break; } }
+      if (!row) { row = { y: y, cells: [] }; rows.push(row); }
+      row.cells.push({ x: x, w: it.width || 0, h: it.height || 0, s: it.str });
+    });
+    rows.sort((a, b) => b.y - a.y);
+    rows.forEach((r) => {
+      r.cells.sort((a, b) => a.x - b.x);
+      r.text = joinCells(r.cells);
+      r.h = r.cells.reduce((m, c) => Math.max(m, c.h), 0);
+    });
+    return rows;
+  }
+  function joinCells(cells) {
+    let out = '', end = null;
+    cells.forEach((c) => {
+      if (end !== null && c.x - end > 1.5) out += ' ';
+      out += c.s;
+      end = c.x + c.w;
+    });
+    return out.replace(/\s+/g, ' ').trim();
+  }
+  const AMOUNT_BIT = /^[+-]$|^[+-]?[\d.]+,\d{2}\s*€?$|^€$/;
+  function eurCents(sign, num) {
+    const c = Math.round(parseFloat(num.replace(/\./g, '').replace(',', '.')) * 100);
+    return sign === '-' ? -c : c;
+  }
+  // One C24 statement: pages -> { acc, label, from, to, items, sum, ok }. Returns null for other PDFs.
+  function parseC24(pages) {
+    const all = [].concat.apply([], pages);
+    const text = all.map((r) => r.text).join('\n');
+    if (!/C24 Bank GmbH/.test(text) || !/Transaktionsinformation/.test(text)) return null;
+    const per = /(\d{2})\.(\d{2})\.(\d{4})\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/.exec(text);
+    if (!per) return null;
+    const startMonth = +per[2], startYear = +per[3], endYear = +per[6];
+    const head = /(Vorläufiger\s+)?Kontoauszug\s+(\d{2})\/(\d{4})/.exec(text);
+    // Account: the pocket name (large text) and its type below it, above the statement title on page 1
+    const first = pages[0] || [];
+    let titleIdx = first.findIndex((r) => /Kontoauszug\s+\d{2}\/\d{4}/.test(r.text));
+    if (titleIdx < 0) titleIdx = first.length;
+    let pocket = '', type = '';
+    for (let i = titleIdx - 1; i >= 1; i--) {
+      if (first[i].h >= 11 && first[i].cells[0].x < 120) { pocket = first[i].text; type = first[i + 1] ? first[i + 1].text : ''; break; }
+    }
+    const acc = /^Girokonto$/i.test(type) ? 'C24 Girokonto' : pocket ? 'C24 ' + pocket : 'C24';
+    const items = [], sum = {};
+    let cur = null, cols = null, inTable = false, lastY = 0, afterHeader = false;
+    pages.forEach((rows) => {
+      inTable = false;
+      rows.forEach((r) => {
+        const t = r.text;
+        if (/^Buchung\b/.test(t) && /Valuta/.test(t) && /Betrag$/.test(t)) {
+          const find = (re, d) => { const c = r.cells.filter((x) => re.test(x.s.trim()))[0]; return c ? c.x : d; };
+          cols = { valuta: find(/^Valuta$/, 99), info: find(/^Transaktionsinformation$/, 150), amount: find(/^Betrag$/, 500) };
+          inTable = true; afterHeader = true; lastY = r.y;
+          return;
+        }
+        const sm = /^(Startsaldo|Kontobelastungen|Kontogutschriften|Endsaldo)\s+([+-]?)\s*([\d.]+,\d{2})\s*€$/.exec(t);
+        if (sm) { sum[sm[1]] = eurCents(sm[2], sm[3]); return; }
+        if (!inTable) return;
+        if (/^Zusammenfassung$/.test(t) || /Seite \d+ von \d+/.test(t) || (/C24 Bank GmbH/.test(t) && r.cells[0].x > cols.info + 40)) { inTable = false; return; }
+        const left = (c) => c.x < cols.valuta - 4;
+        const mid = (c) => c.x >= cols.valuta - 4 && c.x < cols.info - 4;
+        const amt = (c) => c.x >= cols.amount - 90 && AMOUNT_BIT.test(c.s.trim());
+        const dateText = joinCells(r.cells.filter(left));
+        const valText = joinCells(r.cells.filter(mid));
+        const infoText = joinCells(r.cells.filter((c) => !left(c) && !mid(c) && !amt(c)));
+        const amtText = joinCells(r.cells.filter(amt)).replace(/\s+/g, '');
+        const dm = /^(\d{2})\.(\d{2})\.$/.exec(dateText);
+        const am = /^([+-]?)([\d.]+,\d{2})€$/.exec(amtText);
+        if (dm && am) {
+          const d = +dm[1], mo = +dm[2];
+          const y = mo >= startMonth ? startYear : endYear;
+          cur = { d: y + '-' + pad(mo) + '-' + pad(d), a: eurCents(am[1], am[2]), t: infoText, lines: [] };
+          items.push(cur);
+        } else if (cur && !dateText && !valText && infoText && (afterHeader || lastY - r.y <= 16)) {
+          cur.lines.push(infoText);
+        } else {
+          cur = null;
+        }
+        afterHeader = false;
+        lastY = r.y;
+      });
+    });
+    const out = items.map((it) => {
+      const body = it.lines.filter((l) => !/^IBAN:/.test(l));
+      return { d: it.d, a: it.a, n: clip(body[0] || '', 80), p: clip(body.slice(1).join(' '), 240), t: clip(it.t, 40), acc: acc };
+    });
+    let debit = 0, credit = 0;
+    out.forEach((it) => { if (it.a < 0) debit += it.a; else credit += it.a; });
+    const hasSum = ['Startsaldo', 'Kontobelastungen', 'Kontogutschriften', 'Endsaldo'].every((k) => k in sum);
+    const ok = hasSum && debit === sum.Kontobelastungen && credit === sum.Kontogutschriften && sum.Startsaldo + debit + credit === sum.Endsaldo;
+    return {
+      acc: acc, items: out, ok: ok, hasSum: hasSum, debit: debit, credit: credit, sum: sum,
+      label: head ? (head[1] ? 'Vorläufiger Kontoauszug ' : 'Kontoauszug ') + head[2] + '/' + head[3] : 'Kontoauszug',
+      from: per[3] + '-' + per[2] + '-' + per[1], to: per[6] + '-' + per[5] + '-' + per[4]
+    };
+  }
+  async function readPdfFiles(files) {
+    importMsg(files.length === 1 ? 'Kontoauszug wird gelesen…' : files.length + ' Kontoauszüge werden gelesen…');
+    $('pickBtn').disabled = true;
+    try {
+      let lib;
+      try { lib = await loadPdfJs(); }
+      catch (e) { importMsg('Der PDF-Leser konnte nicht geladen werden. Öffne die App einmal mit Internet und versuche es dann erneut.'); return; }
+      const found = [], failed = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        try {
+          const doc = await lib.getDocument({ data: new Uint8Array(await f.arrayBuffer()), isEvalSupported: false }).promise;
+          const pages = [];
+          for (let n = 1; n <= doc.numPages; n++) {
+            const pg = await doc.getPage(n);
+            pages.push(pageLines((await pg.getTextContent()).items));
+          }
+          try { doc.destroy(); } catch (e) {}
+          const st = parseC24(pages);
+          if (st) { st.fileName = f.name; found.push(st); } else failed.push(f.name);
+        } catch (e) {
+          failed.push(f.name);
+        }
+      }
+      if (!found.length) {
+        importMsg((files.length === 1 ? 'Diese PDF' : 'Diese PDFs') + ' kann ich nicht lesen. Unterstützt werden Kontoauszüge der C24 Bank. Bei anderen Banken nutze bitte den CSV-Export.');
+        return;
+      }
+      // The same month picked twice (e.g. preliminary and final): keep the one that covers more days
+      const byMonth = {};
+      found.forEach((st) => {
+        const key = st.acc + '|' + st.from.slice(0, 7);
+        if (!byMonth[key] || st.to > byMonth[key].to) byMonth[key] = st;
+      });
+      const statements = found.filter((st) => byMonth[st.acc + '|' + st.from.slice(0, 7)] === st);
+      statements.sort((a, b) => a.acc.localeCompare(b.acc) || a.from.localeCompare(b.from));
+      const items = [];
+      statements.forEach((st) => { st.items.forEach((it) => items.push(it)); });
+      S.imp = {
+        kind: 'pdf', fileName: statements.length === 1 ? statements[0].fileName : statements.length + ' Kontoauszügen',
+        title: statements.length === 1 ? statements[0].fileName : statements.length + ' Kontoauszüge',
+        acc: statements[0].acc, items: items, statements: statements, failed: failed,
+        replaced: found.length - statements.length, skipped: 0, pending: 0, guessed: false, map: null
+      };
+      markDuplicates();
+      importMsg('');
+      renderImport();
+      $('previewCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } finally {
+      $('pickBtn').disabled = false;
+      $('csvInput').value = '';
+    }
+  }
+
   function importMsg(text) {
     const el = $('importMsg');
     el.textContent = text;
@@ -1546,7 +1722,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     flush();
     ul.hidden = !list.length;
     $('txEmpty').hidden = !!list.length;
-    $('txEmpty').textContent = !S.tx.length ? 'Noch keine Umsätze. Importiere eine CSV-Datei unter Daten.'
+    $('txEmpty').textContent = !S.tx.length ? 'Noch keine Umsätze. Importiere Kontoauszüge unter Daten.'
       : searching || S.filterCat || S.filterAcc ? 'Keine passenden Umsätze.' : 'Keine Umsätze in diesem Monat.';
   }
 
@@ -1690,16 +1866,22 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const imp = S.imp;
     $('previewCard').hidden = !imp;
     if (!imp) return;
-    $('pvTitle').textContent = imp.fileName;
+    $('pvTitle').textContent = imp.title || imp.fileName;
     $('pvNew').textContent = imp.fresh.toLocaleString('de-DE');
     $('pvDup').textContent = imp.dup.toLocaleString('de-DE');
     $('pvSkip').textContent = (imp.skipped + imp.pending).toLocaleString('de-DE');
-    if (document.activeElement !== $('pvAcc')) $('pvAcc').value = imp.acc;
+    const isPdf = imp.kind === 'pdf';
+    $('pvAccWrap').hidden = isPdf;
+    $('pvMap').hidden = isPdf;
+    $('pvStmts').hidden = !isPdf;
+    if (!isPdf && document.activeElement !== $('pvAcc')) $('pvAcc').value = imp.acc;
+    if (isPdf) renderStatements(imp);
     const dates = imp.items.map((i) => i.d).sort();
     const notes = [];
     if (dates.length) notes.push('Zeitraum ' + fDate.format(fromISO(dates[0])) + ' bis ' + fDate.format(fromISO(dates[dates.length - 1])) + '.');
     if (imp.pending) notes.push(imp.pending === 1 ? '1 vorgemerkter Umsatz wird übernommen, sobald er gebucht ist.' : imp.pending + ' vorgemerkte Umsätze werden übernommen, sobald sie gebucht sind.');
-    if (!imp.items.length) notes.push('Keine Umsätze erkannt. Öffne „Spalten anpassen“ und wähle Datum und Betrag.');
+    if (isPdf) { if (!imp.items.length) notes.push('In diesen Kontoauszügen stehen keine Umsätze.'); }
+    else if (!imp.items.length) notes.push('Keine Umsätze erkannt. Öffne „Spalten anpassen“ und wähle Datum und Betrag.');
     else if (imp.guessed === 'values') notes.push('Keine Spaltenüberschriften gefunden. Bitte prüfe die Vorschau und die Spalten.');
     else if (imp.guessed === 'names') notes.push('Unbekanntes Format: Die Spalten wurden anhand ihrer Namen geschätzt. Bitte prüfe die Vorschau.');
     $('pvRange').textContent = notes.join(' ');
@@ -1718,12 +1900,43 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     pv.hidden = !pv.childNodes.length;
     $('pvImport').disabled = !imp.fresh;
     $('pvImport').textContent = imp.fresh ? txWord(imp.fresh) + ' importieren' : 'Nichts Neues zu importieren';
+    if (isPdf) return;
     const m = imp.map;
     fillColSelect($('mDate'), m.date, m.date < 0 ? [['-1', '– bitte wählen –']] : null);
     fillColSelect($('mAmount'), m.amount >= 0 ? m.amount : (m.debit >= 0 ? 'dc' : '-1'), m.debit >= 0 && m.credit >= 0 ? [['dc', 'Soll und Haben (automatisch)']] : [['-1', '– bitte wählen –']]);
     fillColSelect($('mPayee'), m.payee >= 0 ? m.payee : (m.payeeOut >= 0 || m.payeeIn >= 0 ? 'dual' : '-1'), (m.payeeOut >= 0 || m.payeeIn >= 0 ? [['dual', 'Empfänger oder Auftraggeber (automatisch)']] : []).concat([['-1', '– keine –']]));
     fillColSelect($('mPurpose'), m.purpose, [['-1', '– keine –']]);
     $('mInvert').checked = !!m.invert;
+  }
+
+  function renderStatements(imp) {
+    const ul = $('pvStmts');
+    ul.textContent = '';
+    imp.statements.forEach((st) => {
+      const li = el('li', st.ok ? '' : 'warn');
+      const box = el('span');
+      box.appendChild(el('span', null, st.label + ' · ' + st.acc));
+      let detail = txWord(st.items.length);
+      if (st.ok) detail += ' · Summen stimmen mit dem Kontoauszug überein';
+      else if (st.hasSum) detail += ' · Summen weichen vom Kontoauszug ab (' + fmt(st.debit) + ' statt ' + fmt(st.sum.Kontobelastungen) + ', ' + fmtS(st.credit) + ' statt ' + fmtS(st.sum.Kontogutschriften) + '). Bitte prüfen.';
+      else detail += ' · Zusammenfassung nicht gefunden. Bitte prüfen.';
+      box.appendChild(el('small', 'num', detail));
+      li.appendChild(box);
+      ul.appendChild(li);
+    });
+    if (imp.replaced) {
+      const li = el('li');
+      li.appendChild(el('span', null, plural(imp.replaced, 'Auszug für denselben Monat wurde', 'Auszüge für denselben Monat wurden') + ' durch den vollständigeren ersetzt.'));
+      ul.appendChild(li);
+    }
+    imp.failed.forEach((name) => {
+      const li = el('li', 'bad');
+      const box = el('span');
+      box.appendChild(el('span', null, name));
+      box.appendChild(el('small', null, 'Nicht erkannt. Unterstützt werden Kontoauszüge der C24 Bank.'));
+      li.appendChild(box);
+      ul.appendChild(li);
+    });
   }
 
   function renderNote() {
@@ -1754,7 +1967,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   // Transaction sheet
   let sheetTx = null;
   function suggestKeyword(t) {
-    const STOP = { GMBH: 1, AG: 1, SE: 1, KG: 1, CO: 1, MBH: 1, UG: 1, INC: 1, LTD: 1, SAGT: 1, DANKE: 1, FIL: 1, FILIALE: 1, NR: 1, SARL: 1, EU: 1, DE: 1, UND: 1, 'S.A.R.L.': 1, 'GMBH.': 1 };
+    const STOP = { GMBH: 1, AG: 1, SE: 1, KG: 1, CO: 1, MBH: 1, UG: 1, INC: 1, LTD: 1, SAGT: 1, DANKE: 1, FIL: 1, FILIALE: 1, NR: 1, SARL: 1, EU: 1, DE: 1, UND: 1, 'S.A.R.L.': 1, 'GMBH.': 1, DEUTSCHE: 1, DEUTSCHLAND: 1, EUROPE: 1, BANK: 1, ONLINE: 1, KARTENZAHLUNG: 1, LASTSCHRIFT: 1, UEBERWEISUNG: 1, ECHTZEITUEBERWEISUNG: 1 };
     const words = normText(t.n || t.p).split(' ').filter((w) => w.length > 1 && !/^[\d.]+$/.test(w) && !STOP[w]);
     if (!words.length) return '';
     return words[0].length >= 4 ? words[0] : words.slice(0, 2).join(' ');
@@ -2002,9 +2215,14 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }));
   $$('[data-action="add-tx"]').forEach((b) => b.addEventListener('click', openAdd));
   $('csvInput').addEventListener('change', (e) => {
-    const f = e.target.files && e.target.files[0];
+    const files = Array.prototype.slice.call(e.target.files || []);
     importMsg('');
-    if (f) readCSVFile(f);
+    if (!files.length) return;
+    const isPdf = (f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+    const pdfs = files.filter(isPdf);
+    if (pdfs.length === files.length) readPdfFiles(pdfs);
+    else if (files.length === 1) readCSVFile(files[0]);
+    else { importMsg('Bitte wähle entweder eine CSV-Datei oder einen oder mehrere PDF-Kontoauszüge.'); e.target.value = ''; }
   });
   $('openHint').addEventListener('click', () => { S.filterCat = '_open'; S.query = ''; setTab('tx'); });
   $('catFilter').addEventListener('change', (e) => { S.filterCat = e.target.value; renderTx(); });
@@ -2016,7 +2234,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   let accTimer = 0;
   $('pvAcc').addEventListener('input', (e) => {
     clearTimeout(accTimer);
-    accTimer = setTimeout(() => { if (!S.imp) return; S.imp.acc = e.target.value; markDuplicates(); renderImport(); }, 200);
+    accTimer = setTimeout(() => { if (!S.imp || S.imp.kind === 'pdf') return; S.imp.acc = e.target.value; markDuplicates(); renderImport(); }, 200);
   });
   const remap = () => { if (!S.imp) return; buildImport(); renderImport(); };
   $('mDate').addEventListener('change', (e) => { S.imp.map.date = Number(e.target.value); remap(); });

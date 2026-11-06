@@ -1,6 +1,6 @@
 // Service worker: keeps the app working without internet.
 // Bump CACHE when any file changes so phones pick up the new version.
-const CACHE = 'budget-v1';
+const CACHE = 'budget-v2';
 const ASSETS = [
   "./",
   "./index.html",
@@ -13,7 +13,9 @@ const ASSETS = [
   "./fonts/barlow-latin-600-normal.woff2",
   "./fonts/barlow-latin-700-normal.woff2",
   "./fonts/barlow-semi-condensed-latin-600-normal.woff2",
-  "./fonts/barlow-semi-condensed-latin-700-normal.woff2"
+  "./fonts/barlow-semi-condensed-latin-700-normal.woff2",
+  "./vendor/pdfjs/pdf.min.mjs",
+  "./vendor/pdfjs/pdf.worker.min.mjs"
 ];
 
 self.addEventListener('install', (event) => {
