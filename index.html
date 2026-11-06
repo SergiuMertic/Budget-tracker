@@ -761,7 +761,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     <div class="filters">
       <label class="lbl">Kontostand <span class="money"><input type="text" inputmode="decimal" class="field num" id="balAmt" placeholder="0,00" autocomplete="off"><span>€</span></span></label>
       <label class="lbl">Stand am Ende von <input type="date" class="field" id="balDate"></label>
+      <label class="lbl wide" id="balPayDayWrap" hidden>Automatische Abbuchung am Tag des Monats <input type="number" class="field" id="balPayDay" min="1" max="31" step="1" inputmode="numeric" placeholder="z. B. 10"></label>
     </div>
+    <p class="card-text" id="balPayDayHelp" hidden>Dieser Termin wird für „Bis zum Gehalt“ verwendet. Die Einstellung bleibt auf diesem Gerät.</p>
     <label class="check" id="balNegWrap"><input type="checkbox" id="balNeg"> Konto ist im Minus</label>
     <p class="card-msg danger" id="balErr" hidden></p>
     <button type="button" class="primary" id="balSave">Speichern</button>
@@ -781,7 +783,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '12';
+  const APP_VERSION = '13';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -924,7 +926,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     budgets: {},     // category id -> cents per month
     owner: '',       // account holder name from the statements (stays on this device)
     bal: {},         // account name -> { d, a }: balance at the end of day d (cents)
-    opts: { cashManual: false, payday: false, cashSince: '' },
+    opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} },
     rules: [],       // { id, k: keyword (normalized), c: category id }
     cats: [],        // custom categories
     month: thisMonth(),
@@ -1075,7 +1077,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   function cleanData(raw) {
-    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '' }, owner: '' };
+    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' };
     if (!raw || typeof raw !== 'object') return out;
     const ids = {};
     (Array.isArray(raw.cats) ? raw.cats : []).forEach((c, i) => {
@@ -1120,13 +1122,24 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         if (isFinite(a) && Math.abs(a) < 1e11) out.bal[name] = { d: b.d, a: a };
       });
     }
-    if (raw.opts && typeof raw.opts === 'object') { out.opts.cashManual = raw.opts.cashManual === true; out.opts.payday = raw.opts.payday === true; out.opts.cashSince = /^\d{4}-\d{2}-\d{2}$/.test(raw.opts.cashSince) ? raw.opts.cashSince : ''; }
+    if (raw.opts && typeof raw.opts === 'object') {
+      out.opts.cashManual = raw.opts.cashManual === true;
+      out.opts.payday = raw.opts.payday === true;
+      out.opts.cashSince = /^\d{4}-\d{2}-\d{2}$/.test(raw.opts.cashSince) ? raw.opts.cashSince : '';
+      if (raw.opts.cardPaymentDays && typeof raw.opts.cardPaymentDays === 'object' && !Array.isArray(raw.opts.cardPaymentDays)) {
+        Object.keys(raw.opts.cardPaymentDays).forEach((key) => {
+          const name = clip(key, 40), day = Number(raw.opts.cardPaymentDays[key]);
+          if (name && Number.isInteger(day) && day >= 1 && day <= 31) out.opts.cardPaymentDays[name] = day;
+        });
+      }
+    }
     out.owner = clip(raw.owner, 60);
     return out;
   }
   function loadData(clean) {
     S.tx = clean.tx; S.budgets = clean.budgets; S.rules = clean.rules; S.cats = clean.cats;
-    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false, cashSince: '' };
+    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} };
+    if (!S.opts.cardPaymentDays) S.opts.cardPaymentDays = {};
     if (S.opts.cashManual && !S.opts.cashSince) S.opts.cashSince = S.bal[CASH] ? S.bal[CASH].d : today(); S.owner = clean.owner || '';
     migrateAccounts();
     rebuildCats();
@@ -2123,7 +2136,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const amounts = history.map((entry) => entry.amount);
       const midAmount = medianNumber(amounts);
       if (!group.card && Math.max.apply(null, amounts) - Math.min.apply(null, amounts) > Math.max(5000, midAmount * 0.75)) return;
-      const day = medianNumber(days);
+      const configuredDay = group.cardAccount && S.opts.cardPaymentDays[group.cardAccount];
+      const day = configuredDay || medianNumber(days);
       let date = dateInMonth(today().slice(0, 7), day);
       if (date < today()) date = dateInMonth(shiftMonth(date.slice(0, 7), 1), day);
       if (date > nextPayday) return;
@@ -2137,7 +2151,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         payee: group.payee || 'Abbuchung',
         account: group.account,
         date: date,
-        amount: amount
+        amount: amount,
+        automatic: !!configuredDay
       });
     });
     return due.sort((a, b) => a.date.localeCompare(b.date) || a.payee.localeCompare(b.payee));
@@ -2174,7 +2189,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     due.forEach((item) => {
       const li = el('li'), detail = el('span', 'payday-detail');
       detail.appendChild(el('span', 'payday-name', item.payee));
-      detail.appendChild(el('span', 'payday-meta', fDate.format(fromISO(item.date)) + ' · ' + item.account));
+      detail.appendChild(el('span', 'payday-meta', fDate.format(fromISO(item.date)) + (item.automatic ? ' · automatisch' : '') + ' · ' + item.account));
       li.appendChild(detail);
       li.appendChild(el('span', 'payday-amount num', fmt(item.amount)));
       list.appendChild(li);
@@ -2191,7 +2206,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     });
     if (shortfall) {
       const item = shortfall.item;
-      warning.textContent = 'Achtung: Der Kontostand reicht voraussichtlich nicht für ' + item.payee + ' am ' + fDate.format(fromISO(item.date)) + '. Es fehlen etwa ' + fmt(shortfall.amount) + '. Eine Rücklastschrift kann Gebühren kosten.';
+      warning.textContent = item.automatic
+        ? 'Achtung: Der Kontostand reicht voraussichtlich nicht für die automatische Abbuchung von ' + item.payee + ' bis zum ' + fDate.format(fromISO(item.date)) + '. Es fehlen etwa ' + fmt(shortfall.amount) + '. Eine Rücklastschrift kann Gebühren kosten.'
+        : 'Achtung: Der Kontostand reicht voraussichtlich nicht für ' + item.payee + ' am ' + fDate.format(fromISO(item.date)) + '. Es fehlen etwa ' + fmt(shortfall.amount) + '. Eine Rücklastschrift kann Gebühren kosten.';
       warning.hidden = false;
     } else if (missing) {
       warning.textContent = 'Für ' + missing.account + ' fehlt ein aktueller Kontostand. Die Deckung der Abbuchung ist nicht prüfbar.';
@@ -2848,6 +2865,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const y = fromISO(today()); y.setDate(y.getDate() - 1);
     // Cash is usually counted now, which is the state at the end of yesterday
     $('balDate').value = cur ? cur.d : acc === CASH ? isoDay(y) : today();
+    $('balPayDay').value = S.opts.cardPaymentDays[acc] || '';
+    $('balPayDayWrap').hidden = !isCardAcc(acc);
+    $('balPayDayHelp').hidden = !isCardAcc(acc);
     $('balSheetTitle').textContent = acc === CASH ? 'Wie viel Bargeld hast du?' : 'Kontostand: ' + acc;
     $('balHelp').textContent = acc === CASH
       ? 'Zähle dein Bargeld (Portemonnaie und was du zu Hause hast) und trage den Betrag ein. Danach rechnet die App selbst: Abhebungen und Bar-Trinkgeld kommen dazu, Barzahlungen und Einzahlungen gehen ab.'
@@ -2867,13 +2887,24 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const neg = /^-/.test(raw) || $('balNeg').checked;
     const v = parseUserAmount(raw.replace(/^-/, ''));
     const d = $('balDate').value;
+    const payDayText = $('balPayDay').value.trim();
     const err = $('balErr');
     if (!raw || !isFinite(v)) { err.textContent = 'Bitte einen Betrag eingeben, z. B. 119,23.'; err.hidden = false; return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { err.textContent = 'Bitte ein Datum wählen.'; err.hidden = false; return; }
+    if (isCardAcc(balAcc) && payDayText && (!/^\d{1,2}$/.test(payDayText) || Number(payDayText) < 1 || Number(payDayText) > 31)) { err.textContent = 'Bitte einen Abbuchungstag von 1 bis 31 eingeben.'; err.hidden = false; return; }
     const before = S.bal[balAcc];
+    const beforePayDay = S.opts.cardPaymentDays[balAcc];
     S.bal[balAcc] = { d: d, a: neg ? -v : v };
+    if (isCardAcc(balAcc)) {
+      if (payDayText) S.opts.cardPaymentDays[balAcc] = Number(payDayText);
+      else delete S.opts.cardPaymentDays[balAcc];
+    }
     if (balAcc === CASH && S.opts.cashManual && d < S.opts.cashSince) { S.opts.cashSince = d; recategorizeAll(); }
-    if (!save()) { if (before) S.bal[balAcc] = before; else delete S.bal[balAcc]; return; }
+    if (!save()) {
+      if (before) S.bal[balAcc] = before; else delete S.bal[balAcc];
+      if (beforePayDay == null) delete S.opts.cardPaymentDays[balAcc]; else S.opts.cardPaymentDays[balAcc] = beforePayDay;
+      return;
+    }
     hideDialog($('balSheet'));
     render();
     toast('Kontostand für ' + balAcc + ' gespeichert');

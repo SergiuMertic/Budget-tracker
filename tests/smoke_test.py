@@ -5,6 +5,7 @@ Needs: python3 -m pip install playwright  and  python3 -m playwright install chr
 Optional: set CHROME to a Chrome/Chromium binary to use it instead of Playwright's own.
 """
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -46,7 +47,7 @@ def main():
             if os.environ.get('CHROME'):
                 opts['executable_path'] = os.environ['CHROME']
             browser = p.chromium.launch(**opts)
-            ctx = browser.new_context(viewport={'width': 390, 'height': 844}, locale='de-DE', accept_downloads=True)
+            ctx = browser.new_context(viewport={'width': 390, 'height': 844}, locale='de-DE', accept_downloads=True, reduced_motion='reduce')
             page = ctx.new_page()
             page.on('pageerror', lambda e: errors.append('pageerror: ' + str(e)))
             page.on('console', lambda m: errors.append('console: ' + m.text) if m.type == 'error' else None)
@@ -109,9 +110,12 @@ def main():
             check('card balance sheet asks for amount owed', page.is_checked('#balNeg'))
             page.fill('#balAmt', '50')
             page.fill('#balDate', '2026-11-30')
+            page.fill('#balPayDay', '10')
             page.click('#balSave')
             page.wait_for_timeout(200)
             av = page.evaluate("() => ({ big: availBig.textContent, meta: availMeta.textContent })")
+            card_payment_day = page.evaluate("() => JSON.parse(localStorage.getItem('budget.data.v1')).opts.cardPaymentDays['American Express']")
+            check('automatic card payment day is saved locally', card_payment_day == 10, card_payment_day)
             num = lambda t: float(t.replace('\xa0', ' ').replace('€', '').replace('.', '').replace(',', '.').strip())
             after_cards = av['meta'].split('danach ')[1].split(' ·')[0] if 'danach ' in av['meta'] else ''
             check('Verfügbar excludes cards and shows them below', 'Kreditkarten offen: 50,00' in av['meta'] and after_cards and abs(num(av['big']) - 50 - num(after_cards)) < 0.005, av)
@@ -162,7 +166,7 @@ def main():
                 };
                 const currentLabel = monthAt(now.getDate() >= 28 ? 1 : 0);
                 const dueDay = now.getDate() < 27 ? now.getDate() + 1 : now.getDate() === 27 ? 27 : 5;
-                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: today, a: 30000 }, 'American Express': { d: today, a: -12345 } }, opts: { cashManual: false, payday: true, cashSince: '' }, owner: '' };
+                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: today, a: 60000 }, 'American Express': { d: today, a: -12345 } }, opts: { cashManual: false, payday: true, cashSince: '', cardPaymentDays: { 'American Express': 10 } }, owner: '' };
                 let serial = 0;
                 const add = (tx) => data.tx.push(Object.assign({ id: 'forecast-' + (++serial), src: 'r' }, tx));
                 for (let offset = 1; offset <= 4; offset++) {
@@ -187,8 +191,8 @@ def main():
                 warning: paydayWarning.textContent,
                 rows: Array.from(paydayList.querySelectorAll('li')).map((li) => li.innerText)
             })""")
-            check('unlinked Amex debit uses the current card balance', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row for row in forecast['rows']), forecast)
-            check('free available reserves bills and warns about a shortfall', abs(num(forecast['free']) + 323.45) < 0.005 and 'reicht voraussichtlich nicht' in forecast['warning'] and 'Rücklastschrift' in forecast['warning'], forecast)
+            check('unlinked Amex debit uses the current card balance and configured day', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row and re.search(r'\b10\.\d{2}\.\d{4}\b', row) for row in forecast['rows']), forecast)
+            check('automatic debit warns about a shortfall by the configured day', abs(num(forecast['free']) + 23.45) < 0.005 and 'automatische Abbuchung' in forecast['warning'] and 'bis zum' in forecast['warning'] and re.search(r'\b10\.\d{2}\.\d{4}\b', forecast['warning']) and 'Rücklastschrift' in forecast['warning'], forecast)
 
             # Version shown and service worker registered
             note = page.text_content('#note')
