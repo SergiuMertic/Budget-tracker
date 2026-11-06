@@ -717,7 +717,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '4';
+  const APP_VERSION = '5';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -767,6 +767,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     plus: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 8.5v7M8.5 12h7"/>'),
     swap: svg('<path d="M4 8.5h14.5L15 5"/><path d="M20 15.5H5.5L9 19"/>'),
     tag: svg('<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3-8.7 8.7z"/><circle cx="8" cy="8" r="1.4"/>'),
+    card: svg('<rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>'),
+    plane: svg('<path d="M10.5 21l1.5-1.5v-5l7 3v-2l-7-5V4.5a1.5 1.5 0 0 0-3 0v6l-7 5v2l7-3v5L10.5 21z" transform="translate(1.5 0)"/>'),
+    people: svg('<circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9.5" r="2.5"/><path d="M15.8 14.2c2.9-.4 5.2 1.6 5.2 4.8"/>'),
+    wallet: svg('<path d="M4 7.5h14.5a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M4 7.5l11-3v3"/><circle cx="16" cy="13.75" r="1.2"/>'),
     x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     chev: svg('<path d="M9 6l6 6-6 6"/>')
   };
@@ -786,6 +790,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     { id: 'freizeit', name: 'Freizeit & Sport', kind: 'out', color: '#23A06A', icon: 'gym' },
     { id: 'bargeld', name: 'Bargeld', kind: 'out', color: '#8C7A66', icon: 'cash' },
     { id: 'spenden', name: 'Spenden', kind: 'out', color: '#C2614A', icon: 'heart' },
+    { id: 'kredit', name: 'Kreditkarte & Raten', kind: 'out', color: '#9C2F45', icon: 'card' },
+    { id: 'reisen', name: 'Reisen & Urlaub', kind: 'out', color: '#2E9BD6', icon: 'plane' },
+    { id: 'familie', name: 'Familie & Freunde', kind: 'out', color: '#7C8B2E', icon: 'people' },
+    { id: 'eigene', name: 'Eigene Konten (Revolut usw.)', kind: 'out', color: '#3F5F8F', icon: 'wallet' },
     { id: 'gebuehren', name: 'Gebühren & Steuern', kind: 'out', color: '#71808C', icon: 'receipt' },
     { id: 'sonstiges', name: 'Sonstiges', kind: 'out', color: '#979EA3', icon: 'dots' },
     { id: 'sparen', name: 'Sparen & Investieren', kind: 'save', color: '#3F86D6', icon: 'trend' },
@@ -798,24 +806,27 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   /* ---------- Default rules: words in the transaction text -> category ----------
      Checked in this order. Sign: '+' only money in, '-' only money out, '' both. Whole words only. */
   const DEFAULT_RULES = [
-    ['sparen', '', 'TRADE REPUBLIC', 'TRADEREPUBLIC', 'SCALABLE', 'SPARPLAN', 'TAGESGELD', 'FESTGELD', 'SPARKONTO', 'BAUSPAR', 'BAUSPARVERTRAG', 'BAUSPARKASSE', 'WERTPAPIERKAUF', 'ETF'],
+    ['sparen', '', 'TRADE REPUBLIC', 'TRADEREPUBLIC', 'SCALABLE', 'SPARPLAN', 'TAGESGELD', 'FESTGELD', 'SPARKONTO', 'BAUSPAR', 'BAUSPARVERTRAG', 'BAUSPARKASSE', 'WERTPAPIERKAUF', 'ETF', 'UEBERSCHUSSSPAREN'],
     ['umbuchung', '', 'UMBUCHUNG', 'UEBERTRAG', 'KONTOUEBERTRAG', 'EIGENE KONTEN', 'EIGENES KONTO', 'KREDITKARTENABRECHNUNG', 'KREDITKARTE ABRECHNUNG', 'AUSGLEICH KREDITKARTE', 'KREDITKARTENAUSGLEICH'],
     ['gehalt', '+', 'LOHN', 'GEHALT', 'BEZUEGE', 'ARBEITSENTGELT', 'LOHNABRECHNUNG', 'GEHALTSZAHLUNG', 'ENTGELTABRECHNUNG'],
-    ['einnahmen', '+', 'KINDERGELD', 'FAMILIENKASSE', 'BAREINZAHLUNG', 'BARGELDEINZAHLUNG', 'VIACASHDEPOSIT', 'EINZAHLUNG', 'ZINSEN', 'ZINSGUTSCHRIFT', 'HABENZINSEN', 'TRINKGELD', 'TRINKGELDZAHLUNG', 'SMILY', 'CASHBACK', 'PRAEMIE'],
+    ['eigene', '-', 'REVOLUT', 'TOPUP', 'TOP UP', 'AUFLADUNG'],
+    ['einnahmen', '+', 'KINDERGELD', 'FAMILIENKASSE', 'BAREINZAHLUNG', 'BARGELDEINZAHLUNG', 'VIACASHDEPOSIT', 'EINZAHLUNG', 'ZINSEN', 'ZINSGUTSCHRIFT', 'HABENZINSEN', 'TRINKGELD', 'TRINKGELDZAHLUNG', 'SMILY', 'CASHBACK', 'PRAEMIE', 'FINANZAMT', 'STEUERERSTATTUNG', 'ERSTATTUNG', 'INCENTIVE'],
     ['handy', '', 'ALDI TALK', 'TELEKOM', 'VODAFONE', 'O2', 'TELEFONICA', '1&1', '1UND1', 'CONGSTAR', 'FREENET', 'MOBILCOM', 'WINSIM', 'FRAENK', 'PYUR', 'DEUTSCHE GLASFASER', 'NETCOLOGNE', 'LEBARA', 'LYCAMOBILE'],
-    ['abos', '', 'AMAZON PRIME', 'PRIME VIDEO', 'NETFLIX', 'SPOTIFY', 'DISNEY', 'APPLE.COM', 'APPLE COM BILL', 'ITUNES', 'GOOGLE PLAY', 'GOOGLE YOUTUBE', 'YOUTUBE', 'YOUTUBEPREMIUM', 'YOUTUBE PREMIUM', 'GOOGLE ONE', 'AMZNPRIME', 'PROTV', 'PRO TV', 'VOYO', 'SCHUFA', 'CONTENT PAKET', 'DAZN', 'SKY', 'AUDIBLE', 'ANTHROPIC', 'CLAUDE.AI', 'OPENAI', 'CHATGPT', 'MICROSOFT', 'ADOBE', 'PLAYSTATION', 'NINTENDO', 'STEAM', 'XBOX', 'PATREON', 'TWITCH', 'CANVA', 'DROPBOX', 'ICLOUD', 'WAIPU', 'JOYN', 'PARAMOUNT', 'CRUNCHYROLL', 'DEEZER', 'TIDAL'],
+    ['kredit', '', 'AMERICAN EXPRESS', 'AMEX', 'ANYFIN', 'KLARNA CARD', 'ADVANZIA', 'HANSEATIC BANK', 'BARCLAYS', 'TF BANK', 'SANTANDER CONSUMER', 'RATENKREDIT', 'KREDITRATE', 'DARLEHEN', 'TILGUNG'],
+    ['reisen', '', 'RYANAIR', 'EUROWINGS', 'LUFTHANSA', 'WIZZ', 'WIZZAIR', 'EASYJET', 'CONDOR', 'TUIFLY', 'TUI', 'BOOKING.COM', 'AIRBNB', 'HOTEL', 'HOTELS', 'HOTELVERGLEICH', 'RADISSON', 'HILTON', 'MARRIOTT', 'IBIS', 'MOTEL ONE', 'AIRPORT', 'FLUGHAFEN', 'EXPEDIA', 'OPODO', 'HOLIDAYCHECK', 'FERIENWOHNUNG'],
+    ['abos', '', 'AMAZON PRIME', 'PRIME VIDEO', 'NETFLIX', 'SPOTIFY', 'DISNEY', 'APPLE.COM', 'APPLE COM BILL', 'ITUNES', 'GOOGLE PLAY', 'GOOGLE YOUTUBE', 'YOUTUBE', 'YOUTUBEPREMIUM', 'YOUTUBE PREMIUM', 'GOOGLE ONE', 'AMZNPRIME', 'PROTV', 'PRO TV', 'VOYO', 'SCHUFA', 'CONTENT PAKET', 'DAZN', 'SKY', 'AUDIBLE', 'ANTHROPIC', 'CLAUDE.AI', 'OPENAI', 'CHATGPT', 'MICROSOFT', 'ADOBE', 'PLAYSTATION', 'NINTENDO', 'STEAM', 'XBOX', 'PATREON', 'TWITCH', 'CANVA', 'DROPBOX', 'ICLOUD', 'WAIPU', 'JOYN', 'PARAMOUNT', 'CRUNCHYROLL', 'DEEZER', 'TIDAL', 'ELEVENLABS', 'MUBI', 'DISCOVERYPLUS', 'DISCOVERY'],
     ['wohnen', '', 'MIETE', 'KALTMIETE', 'WARMMIETE', 'NEBENKOSTEN', 'HAUSGELD', 'VONOVIA', 'ANNINGTON', 'VIVAWEST', 'OSTROM', 'LEG IMMOBILIEN', 'LEG WOHNEN', 'STADTWERKE', 'E.ON', 'EON', 'VATTENFALL', 'RWE', 'EWE', 'ENBW', 'GELSENWASSER', 'ENTEGA', 'TIBBER', 'OCTOPUS ENERGY', 'LICHTBLICK', 'YELLO', 'EPRIMO', 'STROM', 'BEITRAGSSERVICE', 'RUNDFUNK', 'ARD ZDF'],
-    ['lebensmittel', '', 'REWE', 'EDEKA', 'E CENTER', 'ALDI', 'LIDL', 'KAUFLAND', 'NETTO', 'PENNY', 'NORMA', 'GLOBUS', 'MARKTKAUF', 'TEGUT', 'HIT', 'NAH UND GUT', 'BIOMARKT', 'DENNS', 'ALNATURA', 'BAECKEREI', 'BAECKER', 'BACKSTUBE', 'BACKSHOP', 'METZGEREI', 'FLEISCHEREI', 'GETRAENKE', 'TRINKGUT', 'HOL AB', 'PICNIC', 'KNUSPR'],
-    ['drogerie', '', 'DROGERIE', 'DM', 'ROSSMANN', 'BUDNI', 'APOTHEKE', 'DOCMORRIS', 'SHOP APOTHEKE', 'ARZT', 'ZAHNARZT', 'PRAXIS', 'OPTIK', 'FIELMANN', 'APOLLO', 'PHYSIOTHERAPIE'],
-    ['essen', '', 'LIEFERANDO', 'UBER EATS', 'WOLT', 'MCDONALDS', 'MC DONALDS', 'BURGER KING', 'KFC', 'SUBWAY', 'STARBUCKS', 'VAPIANO', 'NORDSEE', 'PIZZA', 'PIZZERIA', 'RESTAURANT', 'IMBISS', 'DOENER', 'KEBAB', 'GRILL', 'CAFE', 'BISTRO', 'SUSHI', 'DOMINOS', 'CALL A PIZZA', 'BACKWERK'],
-    ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE', 'WASCHANLAGE', 'WASCHPARK', 'PRIMWASH', 'HAUPTZOLLAMT'],
+    ['lebensmittel', '', 'REWE', 'EDEKA', 'E CENTER', 'ALDI', 'LIDL', 'KAUFLAND', 'NETTO', 'PENNY', 'NORMA', 'GLOBUS', 'MARKTKAUF', 'TEGUT', 'HIT', 'NAH UND GUT', 'BIOMARKT', 'DENNS', 'ALNATURA', 'BAECKEREI', 'BAECKER', 'BACKSTUBE', 'BACKSHOP', 'METZGEREI', 'FLEISCHEREI', 'GETRAENKE', 'TRINKGUT', 'HOL AB', 'PICNIC', 'KNUSPR', 'TGTG', 'TOO GOOD TO GO', 'IPER', 'IPERAL', 'ALCAMPO', 'BASKO', 'ALBERT HEIJN', 'JUMBO', 'MERCADONA', 'CARREFOUR', 'CONAD', 'ESSELUNGA', 'MIX MARKT', 'MIXMARKT', 'LEBENSMITTEL'],
+    ['drogerie', '', 'DROGERIE', 'DM', 'ROSSMANN', 'BUDNI', 'APOTHEKE', 'DOCMORRIS', 'SHOP APOTHEKE', 'ARZT', 'ZAHNARZT', 'PRAXIS', 'OPTIK', 'FIELMANN', 'APOLLO', 'PHYSIOTHERAPIE', 'KRANKENKASSE', 'AOK', 'BARMER', 'MISTER SPEX', 'KIKO'],
+    ['essen', '', 'LIEFERANDO', 'UBER EATS', 'WOLT', 'MCDONALDS', 'MC DONALDS', 'BURGER KING', 'KFC', 'SUBWAY', 'STARBUCKS', 'VAPIANO', 'NORDSEE', 'PIZZA', 'PIZZERIA', 'RESTAURANT', 'IMBISS', 'DOENER', 'KEBAB', 'GRILL', 'CAFE', 'BISTRO', 'SUSHI', 'DOMINOS', 'CALL A PIZZA', 'BACKWERK', 'RISTORANTE', 'TRATTORIA', 'OSTERIA', 'KEBAP', 'DOENERS', 'BURGER', 'BURGUER', 'SMASHBURGER', 'GELATO', 'EISCAFE', 'EISDIELE', 'TACO', 'KITCHEN', 'GASTRONOMIE', 'GASTRO'],
+    ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE', 'WASCHANLAGE', 'WASCHPARK', 'PRIMWASH', 'HAUPTZOLLAMT', 'HZA', 'PACE TELEMATICS', 'TOTAL SERVICE', 'AUTODOC', 'MR WASH', 'CARWASH', 'CAR WASH', 'PARKING', 'AUTOPARK'],
     ['versicherung', '', 'VERSICHERUNG', 'VERSICHERUNGEN', 'RECHTSSCHUTZ', 'ADAM RIESE', 'BAVARIADIREKT', 'HUK', 'HUK24', 'HUK COBURG', 'ALLIANZ', 'ERGO', 'AXA', 'R+V', 'DEVK', 'GENERALI', 'COSMOSDIREKT', 'HANSEMERKUR', 'BARMENIA', 'GOTHAER', 'SIGNAL IDUNA', 'WGV', 'VHV', 'ZURICH', 'HDI', 'ARAG', 'PROVINZIAL', 'LVM', 'NUERNBERGER', 'DEBEKA', 'CONTINENTALE'],
-    ['shopping', '', 'AMAZON', 'AMZN', 'ZALANDO', 'OTTO GMBH', 'OTTO.DE', 'EBAY', 'ABOUT YOU', 'H&M', 'H+M', 'PRIMARK', 'C&A', 'ZARA', 'DEICHMANN', 'MEDIAMARKT', 'MEDIA MARKT', 'SATURN', 'TEMU', 'SHEIN', 'ALIEXPRESS', 'IKEA', 'OBI', 'BAUHAUS', 'HORNBACH', 'TOOM', 'HAGEBAU', 'ACTION', 'TEDI', 'KIK', 'WOOLWORTH', 'DECATHLON', 'THALIA', 'CYBERPORT', 'NOTEBOOKSBILLIGER', 'ALTERNATE', 'JYSK', 'POCO', 'ROLLER', 'KLARNA'],
+    ['shopping', '', 'AMAZON', 'AMZN', 'ZALANDO', 'OTTO GMBH', 'OTTO.DE', 'EBAY', 'ABOUT YOU', 'H&M', 'H+M', 'PRIMARK', 'C&A', 'ZARA', 'DEICHMANN', 'MEDIAMARKT', 'MEDIA MARKT', 'SATURN', 'TEMU', 'SHEIN', 'ALIEXPRESS', 'IKEA', 'OBI', 'BAUHAUS', 'HORNBACH', 'TOOM', 'HAGEBAU', 'ACTION', 'TEDI', 'KIK', 'WOOLWORTH', 'DECATHLON', 'THALIA', 'CYBERPORT', 'NOTEBOOKSBILLIGER', 'ALTERNATE', 'JYSK', 'POCO', 'ROLLER', 'KLARNA', 'OTTO', 'OTTO PAYMENTS', 'TK MAXX', 'TKMAXX', 'FASHION ID', 'TCHIBO', 'HEMA', 'PULL & BEAR', 'PULL&BEAR', 'CARPISA', 'OVS', 'ORIGINAL MARINES', 'EL CORTE INGLES', 'STRENE GRENE', 'FLYING TIGER', 'SMYTHS', 'BABYPARK', 'KIABI', 'HOME24', 'BLUME 2000', 'BLUME2000', 'BLUMEN', 'GARTENCENTER', 'DEHNER'],
     ['freizeit', '', 'MCFIT', 'MY GYM', 'MYGYM', 'GYM', 'FITNESS', 'FITNESSSTUDIO', 'CLEVER FIT', 'FITX', 'URBAN SPORTS', 'JOHN REED', 'INJOY', 'KINO', 'CINEMAXX', 'UCI', 'CINESTAR', 'EVENTIM', 'TICKETMASTER', 'BOWLING', 'SCHWIMMBAD', 'FREIBAD', 'MUSEUM', 'ZOO', 'THEATER'],
-    ['bargeld', '-', 'VIACASHWITHDRAWAL', 'GELDAUTOMAT', 'BARGELDAUSZAHLUNG', 'BARGELD', 'BARAUSZAHLUNG', 'AUSZAHLUNG GELDAUTOMAT', 'CASH WITHDRAWAL', 'ATM'],
+    ['bargeld', '-', 'VIACASHWITHDRAWAL', 'GELDAUTOMAT', 'BARGELDAUSZAHLUNG', 'BARGELD', 'BARAUSZAHLUNG', 'AUSZAHLUNG GELDAUTOMAT', 'CASH WITHDRAWAL', 'ATM', 'BARGELDABHEBUNG'],
     ['spenden', '', 'SPENDE', 'SPENDEN', 'KOLLEKTE', 'KIRCHE', 'KIRCHENGEMEINDE', 'ZEHNTE', 'UNICEF', 'CARITAS', 'DIAKONIE', 'WWF', 'GREENPEACE', 'AERZTE OHNE GRENZEN', 'SOS KINDERDORF'],
     ['gebuehren', '-', 'KONTOFUEHRUNG', 'KONTOFUEHRUNGSENTGELT', 'KONTOFUEHRUNGSGEBUEHR', 'RECHNUNGSABSCHLUSS', 'ABSCHLUSS', 'ENTGELT', 'ENTGELTE', 'GEBUEHR', 'GEBUEHREN', 'SOLLZINSEN', 'DISPOZINSEN', 'ZINSEN'],
-    ['gebuehren', '', 'FINANZAMT', 'BUNDESKASSE', 'STADTKASSE', 'STEUER', 'STEUERN']
+    ['gebuehren', '', 'FINANZAMT', 'BUNDESKASSE', 'STADTKASSE', 'STEUER', 'STEUERN', 'KONTOAUFLOESUNG', 'STADT', 'KREIS', 'BEZIRKSREGIERUNG', 'LANDESKASSE', 'LANDESHAUPTKASSE']
   ];
 
   // Upper case, umlauts spelled out, accents removed, punctuation turned into spaces (keeps & + .)
@@ -839,6 +850,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   const S = {
     tx: [],          // { id, d: 'YYYY-MM-DD', a: cents (signed), n: name, p: purpose, t: type, acc, c: category, src: m|u|r|f, k: duplicate key }
     budgets: {},     // category id -> cents per month
+    owner: '',       // account holder name from the statements (stays on this device)
     bal: {},         // account name -> { d, a }: balance at the end of day d (cents)
     opts: { cashManual: false },
     rules: [],       // { id, k: keyword (normalized), c: category id }
@@ -860,21 +872,39 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     CAT = {};
     CATS.forEach((c) => { CAT[c.id] = c; });
   }
+  // Own name (from the statements) and C24 pocket names, used to recognise money moved between own accounts
+  let OWNER_RES = [], POCKETS = {};
   function rebuildRules() {
-    USER_COMPILED = S.rules.filter((r) => CAT[r.c]).map((r) => ({ c: r.c, re: wordsRe([catText(r.k)]) }));
+    USER_COMPILED = S.rules.filter((r) => CAT[r.c]).map((r) => ({ c: r.c, re: wordsRe([catText(r.k)]), nameOnly: r.f === 'n' }));
+    const words = normText(S.owner).split(' ').filter((w) => w.length >= 3);
+    OWNER_RES = words.length >= 2 ? words.map((w) => wordsRe([w])) : [];
+    POCKETS = {};
+    const names = {};
+    S.tx.forEach((t) => { names[t.acc] = true; });
+    Object.keys(S.bal).forEach((k) => { names[k] = true; });
+    Object.keys(names).forEach((n) => { if (isPocketAcc(n)) POCKETS[normText(n.slice(4))] = true; });
   }
+  const isPocketAcc = (acc) => /^C24 /.test(acc) && acc !== 'C24 Girokonto';
   const kindOf = (id) => (CAT[id] ? CAT[id].kind : 'out');
 
   function categorize(tx) {
     const text = catText([tx.n, tx.p, tx.t].join(' '));
+    const name = ' ' + normText(tx.n) + ' ';
+    // Your own name as the other party: money moved between your own accounts
+    if (OWNER_RES.length && OWNER_RES.every((re) => re.test(name))) return ['eigene', 'r'];
+    // C24: the Girokonto names a pocket (e.g. Tagesgeld) as the other party: that is saving
+    if (tx.acc && !isPocketAcc(tx.acc) && POCKETS[normText(tx.n)]) return ['sparen', 'r'];
+    const nameText = ' ' + catText(tx.n) + ' ';
     for (let i = 0; i < USER_COMPILED.length; i++) {
-      if (USER_COMPILED[i].re.test(text)) return [USER_COMPILED[i].c, 'u'];
+      const u = USER_COMPILED[i];
+      if (u.re.test(u.nameOnly ? nameText : text)) return [u.c, 'u'];
     }
     for (let i = 0; i < DEFAULT_COMPILED.length; i++) {
       const r = DEFAULT_COMPILED[i];
       if ((r.s === '+' && tx.a <= 0) || (r.s === '-' && tx.a >= 0)) continue;
       if (r.re.test(text)) return [r.c, 'r'];
     }
+    if (tx.acc && isPocketAcc(tx.acc)) return ['umbuchung', 'r'];
     return [tx.a > 0 ? 'einnahmen' : 'sonstiges', 'f'];
   }
   function applyCategory(tx) { const r = categorize(tx); tx.c = r[0]; tx.src = r[1]; }
@@ -918,10 +948,25 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       if (!cands.length) return;
       cands.sort((x, y) => Math.abs(dayNum(x.d) - dn) - Math.abs(dayNum(y.d) - dn));
       const id = newId();
-      [o, cands[0]].forEach((t) => { t.l = id; t.c = 'umbuchung'; t.src = 't'; });
+      [o, cands[0]].forEach((t) => { t.l = id; t.src = 't'; });
+      labelPair(o, cands[0]);
       n++;
     });
     return n;
+  }
+  function labelPair(a, b) {
+    const ca = categorize(a)[0], cb = categorize(b)[0];
+    a.c = ca === 'sparen' ? 'sparen' : 'umbuchung';
+    b.c = cb === 'sparen' && ca !== 'sparen' ? 'sparen' : 'umbuchung';
+  }
+  function relabelLinks() {
+    const seen = {};
+    S.tx.forEach((t) => {
+      if (!t.l || seen[t.l] || t.src !== 't') return;
+      seen[t.l] = true;
+      const other = partnerOf(t);
+      if (other && other.src === 't') labelPair(t, other);
+    });
   }
   function partnerOf(t) { return t.l ? S.tx.filter((x) => x !== t && x.l === t.l)[0] || null : null; }
   function unlink(t) {
@@ -942,13 +987,13 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function readLS(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
   function writeLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
   function save() {
-    const ok = writeLS(DATA, { v: 1, tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts });
+    const ok = writeLS(DATA, { v: 1, tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts, owner: S.owner });
     if (!ok) toast('Speichern auf diesem Gerät nicht möglich. Der Browserspeicher ist eventuell voll oder blockiert.');
     return ok;
   }
 
   function cleanData(raw) {
-    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false } };
+    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false }, owner: '' };
     if (!raw || typeof raw !== 'object') return out;
     const ids = {};
     (Array.isArray(raw.cats) ? raw.cats : []).forEach((c, i) => {
@@ -983,7 +1028,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     (Array.isArray(raw.rules) ? raw.rules : []).forEach((r) => {
       if (!r || !known[r.c]) return;
       const k = normText(r.k).slice(0, 40);
-      if (k) out.rules.push({ id: typeof r.id === 'string' ? r.id.slice(0, 40) : newId(), k: k, c: r.c });
+      if (k) out.rules.push(Object.assign({ id: typeof r.id === 'string' ? r.id.slice(0, 40) : newId(), k: k, c: r.c }, r.f === 'n' ? { f: 'n' } : {}));
     });
     if (raw.bal && typeof raw.bal === 'object') {
       Object.keys(raw.bal).forEach((k) => {
@@ -994,16 +1039,38 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       });
     }
     if (raw.opts && typeof raw.opts === 'object') out.opts.cashManual = raw.opts.cashManual === true;
+    out.owner = clip(raw.owner, 60);
     return out;
   }
   function loadData(clean) {
     S.tx = clean.tx; S.budgets = clean.budgets; S.rules = clean.rules; S.cats = clean.cats;
-    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false };
+    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false }; S.owner = clean.owner || '';
+    migrateAccounts();
     rebuildCats();
     rebuildRules();
-    S.tx.forEach((tx) => { if (!tx.c) applyCategory(tx); });
+    // Categories from rules are worked out again on every start, so improved rules reach older transactions too
+    recategorizeAll();
     cleanLinks();
+    relabelLinks();
     linkTransfers();
+  }
+
+  // Version 4 named the 2024 C24 Girokonto statements "C24 C24 Smartkonto". Merge them into "C24 Girokonto".
+  function migrateAccounts() {
+    const OLD = 'C24 C24 Smartkonto', NEW = 'C24 Girokonto';
+    if (!S.tx.some((t) => t.acc === OLD) && !S.bal[OLD]) return;
+    const have = {};
+    S.tx.forEach((t) => { if (t.acc === NEW) have[t.k] = (have[t.k] || 0) + 1; });
+    S.tx = S.tx.filter((t) => {
+      if (t.acc !== OLD) return true;
+      t.acc = NEW;
+      t.k = dupKey(NEW, t);
+      if (have[t.k]) { have[t.k]--; return false; }
+      return true;
+    });
+    const ob = S.bal[OLD];
+    delete S.bal[OLD];
+    if (ob && (!S.bal[NEW] || ob.d > S.bal[NEW].d)) S.bal[NEW] = ob;
   }
 
   /* ---------- Numbers ---------- */
@@ -1397,6 +1464,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       S.tx.push(tx);
       added.push(tx);
     });
+    if (added.length) { rebuildRules(); recategorizeAll(); relabelLinks(); }
     const linked = added.length ? linkTransfers() : 0;
     if (!save()) { S.tx = S.tx.filter((t) => added.indexOf(t) < 0); S.bal = balBefore; cleanLinks(); return; }
     const last = added.reduce((m, t) => (t.d > m ? t.d : m), '');
@@ -1484,7 +1552,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     for (let i = titleIdx - 1; i >= 1; i--) {
       if (first[i].h >= 11 && first[i].cells[0].x < 120) { pocket = first[i].text; type = first[i + 1] ? first[i + 1].text : ''; break; }
     }
-    const acc = /^Girokonto$/i.test(type) ? 'C24 Girokonto' : pocket ? 'C24 ' + pocket : 'C24';
+    // The main account: type "Girokonto", or (2024 layout) "C24 Smartkonto" with an IBAN line; pockets have no IBAN
+    const isGiro = /^Girokonto$/i.test(type) || /smartkonto|girokonto/i.test(pocket) || first.slice(0, titleIdx).some((r) => /^IBAN:/.test(r.text));
+    const acc = isGiro ? 'C24 Girokonto' : pocket ? 'C24 ' + pocket : 'C24';
+    const owner = first[0] && first[0].h >= 11 ? first[0].text : '';
     const items = [], sum = {};
     let cur = null, cols = null, inTable = false, lastY = 0, afterHeader = false;
     pages.forEach((rows) => {
@@ -1533,7 +1604,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const hasSum = ['Startsaldo', 'Kontobelastungen', 'Kontogutschriften', 'Endsaldo'].every((k) => k in sum);
     const ok = hasSum && debit === sum.Kontobelastungen && credit === sum.Kontogutschriften && sum.Startsaldo + debit + credit === sum.Endsaldo;
     return {
-      acc: acc, items: out, ok: ok, hasSum: hasSum, debit: debit, credit: credit, sum: sum,
+      acc: acc, owner: owner, items: out, ok: ok, hasSum: hasSum, debit: debit, credit: credit, sum: sum,
       label: head ? (head[1] ? 'Vorläufiger Kontoauszug ' : 'Kontoauszug ') + head[2] + '/' + head[3] : 'Kontoauszug',
       from: per[3] + '-' + per[2] + '-' + per[1], to: per[6] + '-' + per[5] + '-' + per[4]
     };
@@ -1576,6 +1647,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       statements.sort((a, b) => a.acc.localeCompare(b.acc) || a.from.localeCompare(b.from));
       const items = [];
       statements.forEach((st) => { st.items.forEach((it) => items.push(it)); });
+      if (!S.owner) { const o = statements.filter((st) => st.owner)[0]; if (o) { S.owner = clip(o.owner, 60); rebuildRules(); } }
       S.imp = {
         kind: 'pdf', fileName: statements.length === 1 ? statements[0].fileName : statements.length + ' Kontoauszügen',
         title: statements.length === 1 ? statements[0].fileName : statements.length + ' Kontoauszüge',
@@ -1717,7 +1789,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       b.type = 'button';
       b.appendChild(catIcon(r.c));
       b.appendChild(el('span', 'cname', r.c.name));
-      b.appendChild(el('span', 'camt num', fmt(r.spent)));
+      // More came back than went out (e.g. money from family, a refund): show it as received
+      const amt = el('span', 'camt num', r.spent < 0 ? fmtS(-r.spent) : fmt(r.spent));
+      if (r.spent < 0) amt.style.color = 'var(--in)';
+      b.appendChild(amt);
       const track = el('span', 'cbar'), fill = el('i');
       track.appendChild(fill);
       b.appendChild(track);
@@ -1740,7 +1815,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         fill.style.width = Math.max(0, r.spent / maxSpent * 100) + '%';
         fill.style.background = r.c.color;
         fill.style.opacity = '0.75';
-        sub.textContent = r.c.kind === 'save' ? 'Kein Sparziel' : 'Kein Budget';
+        sub.textContent = r.spent < 0 ? (r.c.kind === 'save' ? 'Mehr entnommen als gespart' : 'Mehr erhalten als ausgegeben') : r.c.kind === 'save' ? 'Kein Sparziel' : 'Kein Budget';
       }
       b.appendChild(sub);
       b.setAttribute('aria-label', r.c.name + ': ' + fmt(r.spent) + '. ' + sub.textContent + '. Umsätze anzeigen.');
@@ -2032,7 +2107,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const li = el('li', 'rule');
       const m = el('span', 'tmeta');
       m.appendChild(el('span', 'rk', '„' + r.k + '“'));
-      m.appendChild(el('span', 'rc', 'wird zu ' + (CAT[r.c] ? CAT[r.c].name : '?')));
+      m.appendChild(el('span', 'rc', 'wird zu ' + (CAT[r.c] ? CAT[r.c].name : '?') + (r.f === 'n' ? ' · nur wenn es im Namen steht' : '')));
       li.appendChild(m);
       const del = el('button', 'del');
       del.type = 'button';
@@ -2438,7 +2513,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function backupMsg(text) { const e = $('backupMsg'); e.textContent = text; e.hidden = false; }
   function exportBackup() {
     if (!S.tx.length && !S.rules.length && !Object.keys(S.budgets).length) { backupMsg('Noch keine Daten zum Sichern.'); return; }
-    const json = JSON.stringify({ app: 'budget', version: 1, exportedAt: new Date().toISOString(), data: { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts } });
+    const json = JSON.stringify({ app: 'budget', version: 1, exportedAt: new Date().toISOString(), data: { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts, owner: S.owner } });
     const name = 'budget-backup-' + today() + '.json';
     let file = null;
     try { file = new File([json], name, { type: 'application/json' }); } catch (e) { file = null; }
@@ -2467,7 +2542,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       if (!data) { backupMsg('Diese Datei ist kein Budget-Backup.'); return; }
       const clean = cleanData(data);
       if (!confirm('Backup mit ' + txWord(clean.tx.length) + ' laden? Die Daten auf diesem Gerät werden ersetzt.')) return;
-      const before = { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts };
+      const before = { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts, owner: S.owner };
       loadData(clean);
       if (!save()) { loadData(before); return; }
       S.month = latestMonth();

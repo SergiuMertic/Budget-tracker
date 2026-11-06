@@ -10,7 +10,8 @@ A small offline web app to see where your money goes. Import your bank statement
 - Duplicates are skipped, so you can import overlapping date ranges again; pending (vorgemerkt) transactions are left out until they are booked
 - Several accounts side by side (for example Girokonto and Revolut), each with its current balance: taken from C24 statements or a CSV balance column, or entered by hand
 - Transfers between your own accounts are found automatically (same amount out of one account and into another within 4 days) and are not counted twice
-- Automatic categories for common German merchants (REWE, Aldi, dm, Shell, Telekom, Netflix and many more)
+- Automatic categories for common German merchants (REWE, Aldi, dm, Shell, Telekom, Netflix and many more), including Kreditkarte & Raten (American Express, Anyfin, Klarna Card), Reisen & Urlaub, Familie & Freunde and Eigene Konten (Revolut top-ups and transfers to accounts in your own name)
+- Money moved into a C24 pocket (Tagesgeld) counts as saving; transfers to accounts in your own name are recognised from the name on your statements, which stays on your device
 - Your own rules: change a category once and let the app remember it for every transaction with the same text
 - Monthly overview: income, spending, saving and what is left, per category with progress bars
 - Monthly budgets and a savings goal, with a one-tap suggestion from your average of the last 3 months
