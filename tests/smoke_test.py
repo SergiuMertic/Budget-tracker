@@ -162,7 +162,7 @@ def main():
                 };
                 const currentLabel = monthAt(now.getDate() >= 28 ? 1 : 0);
                 const dueDay = now.getDate() < 27 ? now.getDate() + 1 : now.getDate() === 27 ? 27 : 5;
-                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: today, a: 30000 } }, opts: { cashManual: false, payday: true, cashSince: '' }, owner: '' };
+                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: today, a: 30000 }, 'American Express': { d: today, a: -12345 } }, opts: { cashManual: false, payday: true, cashSince: '' }, owner: '' };
                 let serial = 0;
                 const add = (tx) => data.tx.push(Object.assign({ id: 'forecast-' + (++serial), src: 'r' }, tx));
                 for (let offset = 1; offset <= 4; offset++) {
@@ -189,8 +189,8 @@ def main():
                 warning: paydayWarning.textContent,
                 rows: Array.from(paydayList.querySelectorAll('li')).map((li) => li.innerText)
             })""")
-            check('recurring bills include a linked card settlement', abs(num(forecast['due']) - 750) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row for row in forecast['rows']), forecast)
-            check('free available reserves bills and warns about a shortfall', abs(num(forecast['free']) + 450) < 0.005 and 'reicht voraussichtlich nicht' in forecast['warning'] and 'Rücklastschrift' in forecast['warning'], forecast)
+            check('linked card settlement uses the current card balance', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row for row in forecast['rows']), forecast)
+            check('free available reserves bills and warns about a shortfall', abs(num(forecast['free']) + 323.45) < 0.005 and 'reicht voraussichtlich nicht' in forecast['warning'] and 'Rücklastschrift' in forecast['warning'], forecast)
 
             # Version shown and service worker registered
             note = page.text_content('#note')
