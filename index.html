@@ -178,6 +178,12 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-h
 .hero-count { font-size: 14px; color: var(--muted); }
 .hero-big { font-family: var(--font-display); font-weight: 700; font-size: 46px; line-height: 1; letter-spacing: 0.005em; }
 .hero-big.neg { color: var(--over); }
+.avail { display: grid; gap: 8px; }
+.hero-month { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
+.hero-mid { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-height: 1; }
+.hero-mid.neg { color: var(--over); }
+.hero.no-avail .hero-month { padding-top: 0; border-top: 0; }
+.hero.no-avail .hero-mid { font-size: 46px; }
 .split { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--track); }
 .split i { display: block; height: 100%; transition: width 0.25s ease; }
 .split .o { background: var(--out-bar); }
@@ -464,20 +470,30 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           </button>
         </div>
 
-        <div class="hero">
-          <div class="hero-top">
-            <span class="hero-label" id="heroLabel">Übrig</span>
-            <span class="hero-count num" id="heroCount">0 Umsätze</span>
+        <div class="hero" id="hero">
+          <div class="avail" id="avail">
+            <div class="hero-top">
+              <span class="hero-label">Verfügbar</span>
+              <span class="hero-count num" id="availStand"></span>
+            </div>
+            <div class="hero-big num" id="availBig">0,00 €</div>
+            <div class="hero-meta num" id="availMeta" hidden></div>
           </div>
-          <div class="hero-range num" id="heroRange" hidden></div>
-          <div class="hero-big num" id="heroBig">0,00 €</div>
-          <div class="split" id="heroSplit" aria-hidden="true"><i class="o"></i><i class="s"></i><i class="r"></i></div>
-          <div class="legend">
-            <div><span class="k ki">Einnahmen</span><span class="v num" id="sumIn">0 €</span></div>
-            <div><span class="k ko">Ausgaben</span><span class="v num" id="sumOut">0 €</span></div>
-            <div><span class="k ks">Gespart</span><span class="v num" id="sumSave">0 €</span></div>
+          <div class="hero-month">
+            <div class="hero-top">
+              <span class="hero-label" id="heroLabel">Übrig</span>
+              <span class="hero-count num" id="heroCount">0 Umsätze</span>
+            </div>
+            <div class="hero-range num" id="heroRange" hidden></div>
+            <div class="hero-mid num" id="heroBig">0,00 €</div>
+            <div class="split" id="heroSplit" aria-hidden="true"><i class="o"></i><i class="s"></i><i class="r"></i></div>
+            <div class="legend">
+              <div><span class="k ki">Einnahmen</span><span class="v num" id="sumIn">0 €</span></div>
+              <div><span class="k ko">Ausgaben</span><span class="v num" id="sumOut">0 €</span></div>
+              <div><span class="k ks">Gespart</span><span class="v num" id="sumSave">0 €</span></div>
+            </div>
+            <div class="hero-meta num" id="heroMeta"></div>
           </div>
-          <div class="hero-meta num" id="heroMeta"></div>
         </div>
 
         <section class="card balcard" id="balCard" aria-labelledby="balTitle">
@@ -735,7 +751,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '7';
+  const APP_VERSION = '8';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -1833,8 +1849,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const monthName = fMonthName.format(monthDate(S.month));
     const left = st.inc - st.out - st.sav;
     $('heroLabel').textContent = (left < 0 ? 'Minus im ' : 'Übrig im ') + monthName;
-    $('heroBig').textContent = fmt(left);
+    $('heroBig').textContent = fmtS(left);
     $('heroBig').classList.toggle('neg', left < 0);
+    renderAvailable();
     $('heroCount').textContent = txWord(st.count);
     $('heroRange').hidden = !PERIOD.on;
     if (PERIOD.on) $('heroRange').textContent = rangeText(S.month);
@@ -1933,6 +1950,28 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     renderChart();
   }
 
+  // Money you can spend now: all accounts with a balance except savings (C24 pockets, Tagesgeld, depots)
+  const isSavingsAcc = (name) => isPocketAcc(name) || /tagesgeld|sparkonto|depot|trade republic|scalable/i.test(name);
+  function renderAvailable() {
+    let sum = 0, n = 0, oldest = '';
+    const saved = [];
+    accounts().forEach((a) => {
+      const b = balanceOf(a.name);
+      if (!b) return;
+      if (isSavingsAcc(a.name)) { saved.push(a.name.replace(/^C24 /, '') + ' ' + fmt(b.a)); return; }
+      sum += b.a; n++;
+      // Cash is kept up to date by hand, so the date shown is that of the bank accounts
+      if (a.name !== CASH && (!oldest || b.d < oldest)) oldest = b.d;
+    });
+    $('hero').classList.toggle('no-avail', !n);
+    $('avail').hidden = !n;
+    if (!n) return;
+    $('availBig').textContent = fmt(sum);
+    $('availBig').classList.toggle('neg', sum < 0);
+    $('availStand').textContent = oldest ? 'Stand ' + fDate.format(fromISO(oldest)) : '';
+    $('availMeta').hidden = !saved.length;
+    $('availMeta').textContent = 'Ohne Sparkonto: ' + saved.join(', ');
+  }
   function renderBalances() {
     const ul = $('balList');
     ul.textContent = '';
