@@ -211,6 +211,7 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-h
 .payday-name { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .payday-meta { color: var(--muted); font-size: 13px; }
 .payday-amount { flex: none; font-weight: 600; white-space: nowrap; }
+.sub-off { opacity: .6; }
 .payday-warning { width: 100%; min-width: 0; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--over-soft); color: var(--over); font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 
 .card {
@@ -608,6 +609,17 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     <p class="card-text">Lege fest, wie viel du pro Monat in jeder Kategorie ausgeben möchtest. Leer lassen heißt kein Budget. Beim Sparen ist der Betrag dein Sparziel.</p>
     <button type="button" class="secondary" id="suggestBtn">Leere Budgets mit Ø der letzten 3 Monate füllen</button>
     <ul class="list" id="budgetList"></ul>
+    <section class="card payday-card" id="subsCard" aria-labelledby="subsTitle" hidden>
+      <div class="section-head"><h2 id="subsTitle">Abos</h2></div>
+      <div class="payday-summary">
+        <div class="payday-stat"><span>Pro Monat</span><strong class="num" id="subsMonth">–</strong></div>
+        <div class="payday-stat"><span>Pro Jahr</span><strong class="num" id="subsYear">–</strong></div>
+      </div>
+      <ul class="payday-list" id="subsList"></ul>
+      <p class="card-text" id="subsEndedHead" hidden>Wahrscheinlich beendet (nicht mitgezählt)</p>
+      <ul class="payday-list sub-off" id="subsEnded" hidden></ul>
+      <p class="card-text" id="subsNote"></p>
+    </section>
     <div class="card">
       <h2>Eigene Kategorie</h2>
       <div class="addcat">
@@ -783,7 +795,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '13';
+  const APP_VERSION = '14';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2398,6 +2410,71 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     });
     renderBudgetSummary();
   }
+  /* ---------- Subscriptions ---------- */
+  const SUB_LABEL = { 1: 'monatlich', 3: 'vierteljährlich', 6: 'halbjährlich', 12: 'jährlich' };
+  const daysBetween = (a, b) => Math.round((fromISO(b) - fromISO(a)) / 86400000);
+  // Groups all "abos" payments by payee, works out how often each is charged and what it costs per month
+  function subscriptions() {
+    const groups = {};
+    S.tx.forEach((t) => {
+      if (t.c !== 'abos' || t.a >= 0) return;
+      const payee = recurringPayee(t);
+      if (!payee) return;
+      const g = groups[payee] || (groups[payee] = { name: '', days: {} });
+      g.days[t.d] = (g.days[t.d] || 0) + -t.a;
+      if (!g.name || t.d >= g.last) { g.name = clip(t.n || t.p, 40); g.last = t.d; }
+    });
+    const now = today();
+    const active = [], ended = [];
+    Object.keys(groups).forEach((payee) => {
+      const g = groups[payee];
+      const dates = Object.keys(g.days).sort();
+      // Charges a few days apart (double postings) count as one
+      const dist = dates.filter((d, i) => !i || daysBetween(dates[i - 1], d) > 5);
+      let months;
+      if (dist.length >= 2) {
+        const gaps = [];
+        for (let i = 1; i < dist.length; i++) gaps.push(daysBetween(dist[i - 1], dist[i]));
+        const gap = medianNumber(gaps);
+        months = gap <= 45 ? 1 : gap <= 135 ? 3 : gap <= 250 ? 6 : 12;
+      } else if (daysBetween(dates[0], now) <= 40) months = 1;
+      else return;
+      const last = dates[dates.length - 1];
+      const item = { name: g.name, months: months, last: last, amount: g.days[last], perMonth: Math.round(g.days[last] / months) };
+      (daysBetween(last, now) <= months * 30.4 + 15 ? active : ended).push(item);
+    });
+    const byCost = (a, b) => b.perMonth - a.perMonth || a.name.localeCompare(b.name);
+    return { active: active.sort(byCost), ended: ended.sort(byCost) };
+  }
+  function renderSubs() {
+    const subs = subscriptions();
+    const card = $('subsCard');
+    card.hidden = !subs.active.length && !subs.ended.length;
+    if (card.hidden) return;
+    const month = subs.active.reduce((s, x) => s + x.perMonth, 0);
+    $('subsMonth').textContent = fmt(month);
+    $('subsYear').textContent = fmt(subs.active.reduce((s, x) => s + x.amount * 12 / x.months, 0));
+    const fill = (ul, items) => {
+      ul.textContent = '';
+      items.forEach((x) => {
+        const li = el('li');
+        const d = el('span', 'payday-detail');
+        d.appendChild(el('span', 'payday-name', x.name));
+        d.appendChild(el('span', 'payday-meta', SUB_LABEL[x.months] + ' · zuletzt ' + fDate.format(fromISO(x.last))));
+        li.appendChild(d);
+        const a = el('span', 'payday-amount num');
+        a.appendChild(document.createTextNode(fmt(x.amount)));
+        if (x.months > 1) a.appendChild(el('div', 'payday-meta', fmt(x.perMonth) + ' pro Monat'));
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+    };
+    fill($('subsList'), subs.active);
+    $('subsList').hidden = !subs.active.length;
+    fill($('subsEnded'), subs.ended);
+    $('subsEnded').hidden = $('subsEndedHead').hidden = !subs.ended.length;
+    $('subsNote').textContent = 'Aus allen Umsätzen der Kategorie "Abos & Streaming". Bei mehreren Zahlungen zählt der letzte Betrag.';
+  }
   function renderBudgetSummary() {
     let sum = 0, goal = 0;
     CATS.forEach((c) => {
@@ -2602,6 +2679,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     renderOverview();
     renderTx();
     renderBudgets();
+    renderSubs();
     renderData();
     renderNote();
   }

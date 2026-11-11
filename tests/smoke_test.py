@@ -194,6 +194,31 @@ def main():
             check('unlinked Amex debit uses the current card balance and configured day', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row and re.search(r'\b10\.\d{2}\.\d{4}\b', row) for row in forecast['rows']), forecast)
             check('automatic debit warns about a shortfall by the configured day', abs(num(forecast['free']) + 23.45) < 0.005 and 'automatische Abbuchung' in forecast['warning'] and 'bis zum' in forecast['warning'] and re.search(r'\b10\.\d{2}\.\d{4}\b', forecast['warning']) and 'Rücklastschrift' in forecast['warning'], forecast)
 
+            # Subscription overview (synthetic data)
+            page.evaluate("""() => {
+                const now = new Date();
+                const at = (m, day) => { const d = new Date(now.getFullYear(), now.getMonth() + m, day); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' };
+                let n = 0;
+                const add = (d, a, name) => data.tx.push({ id: 'sub-' + (++n), src: 'r', d: d, a: a, n: name, p: 'Abo', acc: 'Example Checking', c: 'abos' });
+                for (let m = -3; m <= 0; m++) add(at(m, 1), -1299, 'NETFLIX');
+                for (let m = -3; m <= 0; m++) add(at(m, 3), -499, 'SPOTIFY');
+                add(at(-14, 10), -12000, 'ADOBE');
+                add(at(-2, 10), -12000, 'ADOBE');
+                for (let m = -9; m <= -6; m++) add(at(m, 5), -999, 'DAZN');
+                add(at(0, 2), 1299, 'NETFLIX');
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-budgets')
+            subs = page.evaluate("""() => ({ month: subsMonth.textContent, year: subsYear.textContent,
+                rows: Array.from(subsList.querySelectorAll('li')).map((li) => li.innerText),
+                ended: Array.from(subsEnded.querySelectorAll('li')).map((li) => li.innerText) })""")
+            check('subscriptions: 3 active, sorted by monthly cost', len(subs['rows']) == 3 and 'NETFLIX' in subs['rows'][0] and 'ADOBE' in subs['rows'][1] and 'SPOTIFY' in subs['rows'][2], subs)
+            check('subscriptions: monthly and yearly totals', abs(num(subs['month']) - (10 + 12.99 + 4.99)) < 0.005 and abs(num(subs['year']) - (120 + 12 * (12.99 + 4.99))) < 0.005, subs)
+            check('subscriptions: ended one is listed apart', len(subs['ended']) == 1 and 'DAZN' in subs['ended'][0], subs)
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)
