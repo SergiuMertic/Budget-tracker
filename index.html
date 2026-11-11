@@ -212,6 +212,13 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-h
 .payday-meta { color: var(--muted); font-size: 13px; }
 .payday-amount { flex: none; font-weight: 600; white-space: nowrap; }
 .sub-off { opacity: .6; }
+.rev-h { margin: 16px 0 4px; font-weight: 600; font-size: 15px; }
+.rev-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.rev-list li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.rev-list .rn { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rev-list .rv { flex: none; font-weight: 600; white-space: nowrap; }
+.rev-list .rm { display: block; font-size: 13px; color: var(--muted); font-weight: 400; }
+.sonst-row { width: 100%; text-align: left; }
 .fixed-card summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; cursor: pointer; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
 .fixed-card summary::-webkit-details-marker { display: none; }
 .fixed-card summary::after { content: '⌄'; color: var(--muted); margin-left: 4px; }
@@ -516,6 +523,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           </button>
         </div>
 
+        <button type="button" class="secondary" id="reviewBtn">Monatsrückblick</button>
+
         <div class="seg" id="scopeSeg" role="radiogroup" aria-label="Ansicht" hidden>
           <button type="button" role="radio" data-scope="me" aria-checked="true">Nur ich</button>
           <button type="button" role="radio" data-scope="home" aria-checked="false">Haushalt</button>
@@ -649,6 +658,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       Umsatz hinzufügen
     </button>
+    <section class="card" id="sonstCard" aria-labelledby="sonstTitle" hidden>
+      <div class="section-head"><h2 id="sonstTitle">Was steckt in Sonstiges?</h2><span class="num" id="sonstTotal"></span></div>
+      <p class="card-text">Die größten Posten der letzten 6 Monate. Tippe einen an, öffne dann einen Umsatz und wähle „Immer so zuordnen“, damit er künftig in der richtigen Kategorie landet.</p>
+      <ul class="payday-list" id="sonstList"></ul>
+    </section>
     <ul class="list" id="txList" hidden></ul>
     <p class="empty" id="txEmpty">Keine Umsätze in diesem Monat.</p>
   </section>
@@ -694,6 +708,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       </div>
       <ul class="payday-list" id="subsList"></ul>
       <p class="card-text" id="subsNote"></p>
+    </details>
+    <details class="card payday-card fixed-card" id="periodCard" hidden>
+      <summary><span>Jährliche Kosten</span><span class="num" id="periodSummary"></span></summary>
+      <p class="card-text">Zahlungen, die nur alle 3, 6 oder 12 Monate kommen, auf den Monat umgerechnet. So viel solltest du jeden Monat zur Seite legen.</p>
+      <ul class="payday-list" id="periodList"></ul>
     </details>
     <div class="card">
       <h2>Eigene Kategorie</h2>
@@ -851,6 +870,16 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   </form>
 </dialog>
 
+<!-- Monthly review -->
+<dialog class="sheet" id="revSheet" aria-labelledby="revTitle">
+  <div class="sheet-in">
+    <div class="grab" aria-hidden="true"></div>
+    <h2 id="revTitle">Monatsrückblick</h2>
+    <div id="revBody"></div>
+    <button type="button" class="primary" id="revClose">Schließen</button>
+  </div>
+</dialog>
+
 <!-- Expected income -->
 <dialog class="sheet" id="expSheet" aria-labelledby="expSheetTitle">
   <form class="sheet-in" id="expForm" method="dialog" novalidate>
@@ -901,7 +930,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '23';
+  const APP_VERSION = '24';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2274,6 +2303,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const subs = subscriptions().active;
       subs.filter((x) => x.prev && x.amount > x.prev * 1.02).slice(0, 1)
         .forEach((x) => out.push({ warn: true, text: x.name + ' ist teurer geworden: ' + fmt(x.amount) + ' statt ' + fmt(x.prev) + '.' }));
+      const rare = periodicCosts().filter((x) => x.next >= today() && daysBetween(today(), x.next) <= 30).sort((a, b) => a.next.localeCompare(b.next))[0];
+      if (rare) out.push({ warn: false, text: 'Bald fällig: ' + rare.name + ' am ' + fDate.format(fromISO(rare.next)) + ' (' + fmt(rare.amount) + ', ' + SUB_LABEL[rare.months] + ').' });
       const soon = subs.filter((x) => x.next >= today() && daysBetween(today(), x.next) <= 7).sort((a, b) => a.next.localeCompare(b.next))[0];
       if (soon) out.push({ warn: false, text: soon.name + ' wird voraussichtlich am ' + fDate.format(fromISO(soon.next)) + ' abgebucht (' + fmt(soon.amount) + ').' });
     }
@@ -2617,6 +2648,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 
   function renderTx() {
     renderFilters();
+    renderSonstiges();
     const q = normText(S.query);
     const searching = q.length > 0;
     $('txMonthbar').hidden = searching;
@@ -2868,6 +2900,164 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     render();
     toast(item.n + ' eingetragen');
   }
+  /* ---------- Sonstiges breakdown ---------- */
+  function sonstigesBreakdown() {
+    const d = fromISO(today());
+    d.setDate(d.getDate() - 183);
+    const cutoff = isoDay(d);
+    const g = {};
+    S.tx.forEach((t) => {
+      if (t.c !== 'sonstiges' || t.a >= 0 || t.d < cutoff || !inScope(t)) return;
+      const key = normText(t.n || t.p).slice(0, 40) || 'OHNE NAME';
+      const x = g[key] || (g[key] = { name: '', total: 0, n: 0, last: '' });
+      x.total += -t.a;
+      x.n++;
+      if (t.d >= x.last) { x.last = t.d; x.name = displayName(t); }
+    });
+    const rows = Object.keys(g).map((k) => g[k]).sort((a, b) => b.total - a.total);
+    return { rows: rows, total: rows.reduce((sum, r) => sum + r.total, 0) };
+  }
+  function renderSonstiges() {
+    const card = $('sonstCard');
+    const b = sonstigesBreakdown();
+    card.hidden = S.filterCat !== 'sonstiges' || !!S.query.trim() || !b.rows.length;
+    if (card.hidden) return;
+    $('sonstTotal').textContent = fmt0(b.total);
+    const ul = $('sonstList');
+    ul.textContent = '';
+    b.rows.slice(0, 12).forEach((r) => {
+      const li = el('li');
+      const btn = el('button', 'payday-detail sonst-row');
+      btn.type = 'button';
+      btn.appendChild(el('span', 'payday-name', r.name));
+      btn.appendChild(el('span', 'payday-meta', plural(r.n, 'Zahlung', 'Zahlungen') + (r.n > 1 ? ' · Ø ' + fmt0(r.total / r.n) : '') + ' · zuletzt ' + fDate.format(fromISO(r.last))));
+      btn.addEventListener('click', () => { S.query = clip(r.name, 40); renderTx(); window.scrollTo(0, 0); });
+      li.appendChild(btn);
+      li.appendChild(el('span', 'payday-amount num', fmt0(r.total)));
+      ul.appendChild(li);
+    });
+  }
+
+  /* ---------- Yearly and rare costs ---------- */
+  // Payments that come every 3, 6 or 12 months with a steady amount (subscriptions are handled in the Abos card)
+  function periodicCosts() {
+    const groups = {};
+    S.tx.forEach((t) => {
+      if (t.a >= 0 || !inScope(t) || t.c === 'abos' || NO_BUDGET_CATS[t.c] || kindOf(t.c) !== 'out') return;
+      const payee = recurringPayee(t);
+      if (!payee) return;
+      const g = groups[payee] || (groups[payee] = { name: '', days: {}, last: '' });
+      g.days[t.d] = (g.days[t.d] || 0) + -t.a;
+      if (t.d >= g.last) { g.last = t.d; g.name = clip(t.n || t.p, 40); }
+    });
+    const now = today(), out = [];
+    Object.keys(groups).forEach((k) => {
+      const g = groups[k];
+      const dates = Object.keys(g.days).sort();
+      const dist = dates.filter((d, i) => !i || daysBetween(dates[i - 1], d) > 20);
+      if (dist.length < 2) return;
+      const gaps = [];
+      for (let i = 1; i < dist.length; i++) gaps.push(daysBetween(dist[i - 1], dist[i]));
+      const gap = medianNumber(gaps);
+      if (gap < 60 || gaps.some((x) => Math.abs(x - gap) > Math.max(20, gap * 0.2))) return;
+      const months = gap <= 135 ? 3 : gap <= 250 ? 6 : 12;
+      const amounts = dist.map((d) => g.days[d]);
+      const mid = medianNumber(amounts);
+      if (amounts.some((a) => Math.abs(a - mid) > mid * 0.25)) return;
+      const last = dist[dist.length - 1];
+      if (daysBetween(last, now) > months * 30.4 + 45) return;
+      const amount = g.days[last];
+      out.push({ name: g.name, months: months, amount: amount, perMonth: Math.round(amount / months), last: last, next: dateInMonth(shiftMonth(last.slice(0, 7), months), Number(last.slice(8, 10))) });
+    });
+    return out.sort((a, b) => b.perMonth - a.perMonth || a.name.localeCompare(b.name));
+  }
+  function renderPeriodic() {
+    const items = periodicCosts(), card = $('periodCard');
+    card.hidden = !items.length;
+    if (!items.length) return;
+    $('periodSummary').textContent = fmt0(items.reduce((sum, x) => sum + x.perMonth, 0)) + ' pro Monat';
+    const ul = $('periodList');
+    ul.textContent = '';
+    items.forEach((x) => {
+      const li = el('li'), d = el('span', 'payday-detail');
+      d.appendChild(el('span', 'payday-name', x.name));
+      d.appendChild(el('span', 'payday-meta', SUB_LABEL[x.months] + ' · nächste ca. ' + fDate.format(fromISO(x.next))));
+      li.appendChild(d);
+      const a = el('span', 'payday-amount num');
+      a.appendChild(document.createTextNode(fmt(x.amount)));
+      a.appendChild(el('div', 'payday-meta', fmt(x.perMonth) + ' pro Monat'));
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+  }
+
+  /* ---------- Monthly review ---------- */
+  function openReview() {
+    const m = S.month, st = monthStats(m), prev = monthStats(shiftMonth(m, -1));
+    const left = st.inc - st.out - st.sav;
+    $('revTitle').textContent = 'Rückblick ' + fMonth.format(monthDate(m));
+    const body = $('revBody');
+    body.textContent = '';
+    const big = el('div', 'sh-amt num' + (left < 0 ? '' : ' pos'), fmtS(left));
+    body.appendChild(big);
+    body.appendChild(el('p', 'card-text', left < 0 ? 'So viel mehr hast du ausgegeben als eingenommen.' : 'So viel ist übrig geblieben.'));
+    const row = (ul, label, value, meta) => {
+      const li = el('li');
+      const n = el('span', 'rn', label);
+      if (meta) n.appendChild(el('span', 'rm', meta));
+      li.appendChild(n);
+      li.appendChild(el('span', 'rv num', value));
+      ul.appendChild(li);
+    };
+    const ul = el('ul', 'rev-list');
+    let outMeta = '';
+    if (prev.count && prev.out > 0) {
+      const pct = Math.round((st.out / prev.out - 1) * 100);
+      outMeta = Math.abs(pct) < 3 ? 'etwa wie im Vormonat' : Math.abs(pct) + ' % ' + (pct > 0 ? 'mehr' : 'weniger') + ' als im Vormonat (' + fmt0(prev.out) + ')';
+    }
+    row(ul, 'Einnahmen', fmt0(st.inc));
+    row(ul, 'Ausgaben', fmt0(st.out), outMeta);
+    row(ul, 'Gespart', fmt0(st.sav), st.inc > 0 ? 'Sparquote ' + Math.round(st.sav / st.inc * 100) + ' %' : '');
+    body.appendChild(ul);
+
+    let fixed = 0, flex = 0;
+    const cats = CATS.filter((c) => c.kind === 'out' && !NO_BUDGET_CATS[c.id]).map((c) => ({ c: c, v: -(st.by[c.id] || 0) })).filter((x) => x.v > 0);
+    cats.forEach((x) => { if (FIXED_CATS[x.c.id]) fixed += x.v; else flex += x.v; });
+    body.appendChild(el('div', 'rev-h', 'Fixkosten und Rest'));
+    const ul2 = el('ul', 'rev-list');
+    row(ul2, 'Fixkosten', fmt0(fixed), (fixed + flex) > 0 ? Math.round(fixed / (fixed + flex) * 100) + ' % der Ausgaben' : '');
+    row(ul2, 'Alles andere', fmt0(flex));
+    body.appendChild(ul2);
+
+    const top = cats.slice().sort((a, b) => b.v - a.v).slice(0, 3);
+    if (top.length) {
+      body.appendChild(el('div', 'rev-h', 'Wohin das meiste Geld ging'));
+      const ul3 = el('ul', 'rev-list');
+      top.forEach((x) => row(ul3, x.c.name, fmt0(x.v), st.out > 0 ? Math.round(x.v / st.out * 100) + ' % der Ausgaben' : ''));
+      body.appendChild(ul3);
+    }
+
+    const budgeted = CATS.filter((c) => c.kind === 'out' && canBudget(c) && S.budgets[c.id]);
+    if (budgeted.length) {
+      const over = budgeted.filter((c) => -(st.by[c.id] || 0) > S.budgets[c.id]);
+      body.appendChild(el('div', 'rev-h', 'Budgets'));
+      body.appendChild(el('p', 'card-text', (budgeted.length - over.length) + ' von ' + budgeted.length + ' Budgets eingehalten.' + (over.length ? ' Darüber: ' + over.map((c) => c.name + ' (+' + fmt0(-(st.by[c.id] || 0) - S.budgets[c.id]) + ')').join(', ') + '.' : '')));
+    }
+
+    let big1 = null;
+    S.tx.forEach((t) => {
+      if (periodOf(t.d) !== m || t.a >= 0 || !inScope(t) || kindOf(t.c) !== 'out' || NO_BUDGET_CATS[t.c]) return;
+      if (!big1 || t.a < big1.a) big1 = t;
+    });
+    if (big1) {
+      body.appendChild(el('div', 'rev-h', 'Größter Einzelposten'));
+      const ul4 = el('ul', 'rev-list');
+      row(ul4, displayName(big1), fmt(-big1.a), fDate.format(fromISO(big1.d)) + ' · ' + (CAT[big1.c] ? CAT[big1.c].name : ''));
+      body.appendChild(ul4);
+    }
+    showDialog($('revSheet'));
+  }
+
   // Money on the accounts you can spend from (not savings, not cards), for planning budgets without leaving this tab
   function renderBudgetCash() {
     const card = $('budgetCash');
@@ -3129,6 +3319,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     renderTx();
     renderBudgets();
     renderSubs();
+    renderPeriodic();
     renderData();
     renderNote();
   }
@@ -3673,6 +3864,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   $('expAdd').addEventListener('click', openExp);
   $('expSave').addEventListener('click', saveExp);
   $('expCancel').addEventListener('click', () => hideDialog($('expSheet')));
+  $('reviewBtn').addEventListener('click', openReview);
+  $('revClose').addEventListener('click', () => hideDialog($('revSheet')));
   $('backupHint').addEventListener('click', () => setTab('data'));
   $('openHint').addEventListener('click', () => { S.filterCat = '_open'; S.query = ''; setTab('tx'); });
   $('catFilter').addEventListener('change', (e) => { S.filterCat = e.target.value; renderTx(); });

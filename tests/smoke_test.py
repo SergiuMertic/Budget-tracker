@@ -417,6 +417,45 @@ def main():
             ex = page.evaluate("() => ({ left: bcLeft.textContent, rows: expList.children.length })")
             check('expected income can be deleted', ex['rows'] == 0 and abs(num(ex['left']) - 690) < 0.005, ex)
 
+            # Sonstiges breakdown, yearly costs and the monthly review
+            page.evaluate("""() => {
+                const now = new Date();
+                const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                const ago = (days) => { const d = new Date(now); d.setDate(d.getDate() - days); return iso(d); };
+                let n = 0; const tx = [];
+                const mk = (d, a, name, c) => tx.push({ id: 'z' + (++n), d: d, a: a, n: name, p: '', t: '', acc: 'Example Checking', c: c, src: 'r', k: 'z' + n });
+                mk(ago(5), -15000, 'Mystery Shop Ltd', 'sonstiges'); mk(ago(40), -9000, 'Mystery Shop Ltd', 'sonstiges'); mk(ago(10), -2500, 'Kleinkram', 'sonstiges');
+                mk(ago(60), -4000, 'Zeitschrift Verlag', 'sonstiges');
+                mk(ago(700), -48000, 'Versicherung Beispiel AG', 'versicherung'); mk(ago(335), -48000, 'Versicherung Beispiel AG', 'versicherung');
+                mk(ago(5), 300000, 'Arbeitgeber', 'gehalt'); mk(ago(3), -8000, 'REWE', 'lebensmittel');
+                const data = { v: 1, tx: tx, budgets: { lebensmittel: 5000 }, rules: [], cats: [], bal: { 'Example Checking': { d: ago(1), a: 100000 } }, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' };
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-tx')
+            page.select_option('#catFilter', 'sonstiges')
+            page.wait_for_timeout(200)
+            sonst = page.evaluate("() => ({ vis: !sonstCard.hidden, first: sonstList.children[0] && sonstList.children[0].textContent, rows: sonstList.children.length, total: sonstTotal.textContent })")
+            check('Sonstiges breakdown lists the biggest payee first', sonst['vis'] and 'Mystery Shop' in sonst['first'] and sonst['rows'] == 3 and abs(num(sonst['total']) - 305) < 0.5, sonst)
+            page.click('#sonstList button')
+            page.wait_for_timeout(300)
+            q = page.input_value('#q')
+            check('tapping a payee searches for it and hides the breakdown', 'Mystery' in q and page.evaluate('sonstCard.hidden'), q)
+            page.fill('#q', '')
+            page.dispatch_event('#q', 'input')
+            page.select_option('#catFilter', '')
+            page.click('#tab-budgets')
+            page.click('#periodCard summary')
+            per = page.evaluate("() => ({ vis: !periodCard.hidden, sum: periodSummary.textContent, rows: periodList.children.length, text: periodList.textContent })")
+            check('yearly cost is spread over 12 months', per['vis'] and per['rows'] == 1 and 'Versicherung Beispiel' in per['text'] and '40' in per['sum'], per)
+            page.click('#tab-overview')
+            page.click('#reviewBtn')
+            page.wait_for_selector('#revSheet[open]')
+            rev = page.evaluate("() => revBody.textContent")
+            check('monthly review shows income, spending and budgets', 'Einnahmen' in rev and 'Ausgaben' in rev and 'Fixkosten' in rev and 'Budgets' in rev and 'Größter Einzelposten' in rev, rev[:200])
+            page.click('#revClose')
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)

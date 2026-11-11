@@ -135,6 +135,11 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 - **Expected income (v23)**: the Budgets tab has a card "Erwartetes Einkommen" where you enter income that has not arrived yet (for example the partner's salary or Weihnachtsgeld) with a label, a net amount and a date (`opts.expected`, max 20, saved in the backup). Items dated today or later count in "Danach übrig" of the card "Auf deinen Konten"; older ones are shown muted and ignored.
 
+- **Three additions (v24)**:
+  - **Sonstiges breakdown** (`sonstigesBreakdown`, `renderSonstiges`): in Umsätze, when the category filter is Sonstiges and nothing is searched, a card lists the biggest payees of the last 6 months. Tapping one searches for it, so a rule can be made from its transaction.
+  - **Yearly costs** (`periodicCosts`, `renderPeriodic`): payments every 3, 6 or 12 months with a steady amount (outside the Abos category) are shown in a collapsed Budgets card with the monthly share. A due payment within 30 days also appears as an insight.
+  - **Monthly review** (`openReview`): the button "Monatsrückblick" on the Overview opens a sheet for the shown month with result, change against last month, fixed versus other costs, top 3 categories, budgets kept and the biggest single expense.
+
 ## Open tasks (in the owner's order of priority)
 
 1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.
