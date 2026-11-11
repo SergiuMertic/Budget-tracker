@@ -427,6 +427,9 @@ def main():
                 mk(ago(5), -15000, 'Mystery Shop Ltd', 'sonstiges'); mk(ago(40), -9000, 'Mystery Shop Ltd', 'sonstiges'); mk(ago(10), -2500, 'Kleinkram', 'sonstiges');
                 mk(ago(60), -4000, 'Zeitschrift Verlag', 'sonstiges');
                 mk(ago(700), -48000, 'Versicherung Beispiel AG', 'versicherung'); mk(ago(335), -48000, 'Versicherung Beispiel AG', 'versicherung');
+                mk(ago(200), -34000, 'Hauptzollamt Dortmund', 'mobil');
+                mk(ago(560), -4000, 'Quartalsclub', 'freizeit'); mk(ago(470), -4000, 'Quartalsclub', 'freizeit'); mk(ago(380), -4000, 'Quartalsclub', 'freizeit'); mk(ago(290), -4000, 'Quartalsclub', 'freizeit'); mk(ago(200), -4000, 'Quartalsclub', 'freizeit');
+                mk(ago(700), -9900, 'Spotify Jahresabo', 'abos'); mk(ago(335), -9900, 'Spotify Jahresabo', 'abos');
                 mk(ago(5), 300000, 'Arbeitgeber', 'gehalt'); mk(ago(3), -8000, 'REWE', 'lebensmittel');
                 const data = { v: 1, tx: tx, budgets: { lebensmittel: 5000 }, rules: [], cats: [], bal: { 'Example Checking': { d: ago(1), a: 100000 } }, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' };
                 localStorage.setItem('budget.data.v1', JSON.stringify(data));
@@ -448,7 +451,7 @@ def main():
             page.click('#tab-budgets')
             page.click('#periodCard summary')
             per = page.evaluate("() => ({ vis: !periodCard.hidden, sum: periodSummary.textContent, rows: periodList.children.length, text: periodList.textContent })")
-            check('yearly cost is spread over 12 months', per['vis'] and per['rows'] == 1 and 'Versicherung Beispiel' in per['text'] and '40' in per['sum'], per)
+            check('only yearly costs are listed: insurance, vehicle tax and a yearly subscription', per['vis'] and per['rows'] == 3 and 'Versicherung Beispiel' in per['text'] and 'Hauptzollamt' in per['text'] and 'Jahresabo' in per['text'] and 'Quartalsclub' not in per['text'], per)
             page.click('#tab-overview')
             page.click('#reviewBtn')
             page.wait_for_selector('#revSheet[open]')

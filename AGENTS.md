@@ -137,7 +137,7 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 - **Three additions (v24)**:
   - **Sonstiges breakdown** (`sonstigesBreakdown`, `renderSonstiges`): in Umsätze, when the category filter is Sonstiges and nothing is searched, a card lists the biggest payees of the last 6 months. Tapping one searches for it, so a rule can be made from its transaction.
-  - **Yearly costs** (`periodicCosts`, `renderPeriodic`): payments every 3, 6 or 12 months with a steady amount (outside the Abos category) are shown in a collapsed Budgets card with the monthly share. A due payment within 30 days also appears as an insight.
+  - **Yearly costs** (`periodicCosts`, `renderPeriodic`, v25: only yearly): payments about once a year with a steady amount, in bill-like categories (`YEARLY_CATS`: abos, versicherung, mobil, gebuehren, wohnen, handy, freizeit) and at least 15 €, shown in a collapsed Budgets card with the monthly share. A single payment counts when the payee is a known yearly bill (`YEARLY_HINT`, for example Hauptzollamt). Yearly subscriptions appear here and in the Abos card. A due payment within 30 days also appears as an insight.
   - **Monthly review** (`openReview`): the button "Monatsrückblick" on the Overview opens a sheet for the shown month with result, change against last month, fixed versus other costs, top 3 categories, budgets kept and the biggest single expense.
 
 ## Open tasks (in the owner's order of priority)

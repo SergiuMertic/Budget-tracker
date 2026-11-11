@@ -711,7 +711,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     </details>
     <details class="card payday-card fixed-card" id="periodCard" hidden>
       <summary><span>Jährliche Kosten</span><span class="num" id="periodSummary"></span></summary>
-      <p class="card-text">Zahlungen, die nur alle 3, 6 oder 12 Monate kommen, auf den Monat umgerechnet. So viel solltest du jeden Monat zur Seite legen.</p>
+      <p class="card-text">Zahlungen, die nur einmal im Jahr kommen, zum Beispiel Kfz-Steuer oder Jahres-Abos, auf den Monat umgerechnet. So viel kannst du jeden Monat zur Seite legen.</p>
       <ul class="payday-list" id="periodList"></ul>
     </details>
     <div class="card">
@@ -930,7 +930,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '24';
+  const APP_VERSION = '25';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2939,11 +2939,15 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   /* ---------- Yearly and rare costs ---------- */
-  // Payments that come every 3, 6 or 12 months with a steady amount (subscriptions are handled in the Abos card)
+  // Payments that come once a year with a steady amount: yearly subscriptions and bills like the vehicle tax.
+  // A single payment counts when the payee is a known yearly bill (the history may only hold one).
+  const YEARLY_HINT = wordsRe(['HAUPTZOLLAMT', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'JAHRESBEITRAG', 'JAHRESGEBUEHR', 'JAHRESABO', 'JAHRESRECHNUNG']);
+  // Only bill-like categories: a shop or restaurant visited a year apart is not a yearly cost
+  const YEARLY_CATS = { abos: 1, versicherung: 1, mobil: 1, gebuehren: 1, wohnen: 1, handy: 1, freizeit: 1 };
   function periodicCosts() {
     const groups = {};
     S.tx.forEach((t) => {
-      if (t.a >= 0 || !inScope(t) || t.c === 'abos' || NO_BUDGET_CATS[t.c] || kindOf(t.c) !== 'out') return;
+      if (t.a >= 0 || !inScope(t) || !YEARLY_CATS[t.c]) return;
       const payee = recurringPayee(t);
       if (!payee) return;
       const g = groups[payee] || (groups[payee] = { name: '', days: {}, last: '' });
@@ -2955,17 +2959,18 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const g = groups[k];
       const dates = Object.keys(g.days).sort();
       const dist = dates.filter((d, i) => !i || daysBetween(dates[i - 1], d) > 20);
-      if (dist.length < 2) return;
-      const gaps = [];
-      for (let i = 1; i < dist.length; i++) gaps.push(daysBetween(dist[i - 1], dist[i]));
-      const gap = medianNumber(gaps);
-      if (gap < 60 || gaps.some((x) => Math.abs(x - gap) > Math.max(20, gap * 0.2))) return;
-      const months = gap <= 135 ? 3 : gap <= 250 ? 6 : 12;
-      const amounts = dist.map((d) => g.days[d]);
-      const mid = medianNumber(amounts);
-      if (amounts.some((a) => Math.abs(a - mid) > mid * 0.25)) return;
+      const months = 12;
+      if (dist.length >= 2) {
+        const gaps = [];
+        for (let i = 1; i < dist.length; i++) gaps.push(daysBetween(dist[i - 1], dist[i]));
+        const gap = medianNumber(gaps);
+        if (gap < 300 || gaps.some((x) => Math.abs(x - gap) > Math.max(30, gap * 0.15))) return;
+        const amounts = dist.map((d) => g.days[d]);
+        const mid = medianNumber(amounts);
+        if (amounts.some((a) => Math.abs(a - mid) > mid * 0.3)) return;
+      } else if (!YEARLY_HINT.test(' ' + catText(g.name) + ' ')) return;
       const last = dist[dist.length - 1];
-      if (daysBetween(last, now) > months * 30.4 + 45) return;
+      if (daysBetween(last, now) > 365 + 45 || g.days[last] < 1500) return;
       const amount = g.days[last];
       out.push({ name: g.name, months: months, amount: amount, perMonth: Math.round(amount / months), last: last, next: dateInMonth(shiftMonth(last.slice(0, 7), months), Number(last.slice(8, 10))) });
     });
