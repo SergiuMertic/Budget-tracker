@@ -129,6 +129,8 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 - **Abos card collapsible (v20)**: the Abos card is a `<details>` like Fixkosten, closed by default, with the monthly total in its header. Content inside a closed `<details>` has empty `innerText`, so tests use `textContent` or open it first.
 
+- **Money on the Budgets tab (v21)**: the card "Auf deinen Konten" (`renderBudgetCash`, called from `renderBudgetSummary`) shows the spendable balances (no savings, cards listed as "Kreditkarten offen", partner accounts only in Haushalt), the fixed debits until payday (same forecast as the overview), what the budgets and savings goal still allow this month, and what is left after that. It updates as you type a budget.
+
 ## Open tasks (in the owner's order of priority)
 
 1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.

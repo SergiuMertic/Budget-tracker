@@ -363,6 +363,22 @@ def main():
             check('budget list has flexible categories only', 'Lebensmittel' in lists['budget'] and 'Wohnen' not in lists['budget'] and 'Versicherungen' not in lists['budget'] and 'Eigene Konten' not in lists['budget'], lists)
             check('fixed costs listed apart with their average', lists['visible'] and 'Wohnen' in lists['fixed'] and '800' in lists['total'], lists)
 
+            # Budgets tab shows the money on the accounts and what is left after the budgets
+            page.evaluate(base, {'tx': [{'id': 'b1', 'd': TODAY, 'a': -9000, 'n': 'REWE', 'p': '', 't': '', 'acc': 'Example Checking', 'c': 'lebensmittel', 'src': 'r', 'k': 'b1'}],
+                                 'budgets': {'lebensmittel': 30000},
+                                 'bal': {'Example Checking': {'d': TODAY, 'a': 100000}}})
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-budgets')
+            bc = page.evaluate("() => ({ avail: bcAvail.textContent, open: bcOpen.textContent, left: bcLeft.textContent, visible: !budgetCash.hidden })")
+            check('budgets tab shows available money and open budgets', bc['visible'] and abs(num(bc['avail']) - 1000) < 0.005 and abs(num(bc['open']) - 210) < 0.005 and abs(num(bc['left']) - 790) < 0.005, bc)
+            inp = page.locator('#budgetList .brow:has-text("Freizeit") input')
+            inp.fill('100')
+            inp.dispatch_event('change')
+            page.wait_for_timeout(200)
+            bc = page.evaluate("() => ({ open: bcOpen.textContent, left: bcLeft.textContent })")
+            check('changing a budget updates what is left', abs(num(bc['open']) - 310) < 0.005 and abs(num(bc['left']) - 690) < 0.005, bc)
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)

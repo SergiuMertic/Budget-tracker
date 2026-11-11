@@ -660,6 +660,17 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       <div class="hero-big num" id="budgetTotal">0 €</div>
       <div class="hero-meta num" id="budgetMeta"></div>
     </div>
+    <section class="card payday-card" id="budgetCash" aria-labelledby="bcTitle" hidden>
+      <div class="section-head"><h2 id="bcTitle">Auf deinen Konten</h2><span class="num" id="bcStand"></span></div>
+      <ul class="payday-list" id="bcList"></ul>
+      <div class="payday-summary">
+        <div class="payday-stat"><span>Verfügbar</span><strong class="num" id="bcAvail">–</strong></div>
+        <div class="payday-stat" id="bcDueW"><span id="bcDueLabel">Fixe Abbuchungen</span><strong class="num" id="bcDue">–</strong></div>
+        <div class="payday-stat"><span>Budgets noch offen</span><strong class="num" id="bcOpen">–</strong></div>
+        <div class="payday-stat"><span>Danach übrig</span><strong class="num" id="bcLeft">–</strong></div>
+      </div>
+      <p class="card-text" id="bcNote"></p>
+    </section>
     <p class="card-text">Lege fest, wie viel du pro Monat in jeder Kategorie ausgeben möchtest, die du selbst steuern kannst. Leer lassen heißt kein Budget. Beim Sparen ist der Betrag dein Sparziel.</p>
     <button type="button" class="secondary" id="suggestBtn">Leere Budgets mit Ø der letzten 3 Monate füllen</button>
     <ul class="list" id="budgetList"></ul>
@@ -865,7 +876,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '20';
+  const APP_VERSION = '21';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2769,7 +2780,56 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('fixedCard').hidden = !total;
     $('fixedTotal').textContent = total ? fmt0(total) + ' pro Monat' : '';
   }
+  // Money on the accounts you can spend from (not savings, not cards), for planning budgets without leaving this tab
+  function renderBudgetCash() {
+    const card = $('budgetCash');
+    const list = $('bcList');
+    list.textContent = '';
+    let sum = 0, n = 0, owed = 0, oldest = '';
+    accounts().forEach((a) => {
+      const b = balanceOf(a.name);
+      if (!b || (!S.opts.household && isPartnerAcc(a.name)) || isSavingsAcc(a.name)) return;
+      if (isCardAcc(a.name)) { owed += b.a; return; }
+      sum += b.a; n++;
+      if (a.name !== CASH && (!oldest || b.d < oldest)) oldest = b.d;
+      const li = el('li');
+      li.appendChild(el('span', 'payday-name', a.name));
+      li.appendChild(el('span', 'payday-amount num' + (b.a < 0 ? ' neg' : ''), fmt(b.a)));
+      list.appendChild(li);
+    });
+    card.hidden = !n;
+    if (!n) return;
+    if (owed < 0) {
+      const li = el('li');
+      li.appendChild(el('span', 'payday-name', 'Kreditkarten offen'));
+      li.appendChild(el('span', 'payday-amount num', fmt(owed)));
+      list.appendChild(li);
+    }
+    $('bcStand').textContent = oldest ? 'Stand ' + fDate.format(fromISO(oldest)) : '';
+    // Fixed debits expected until the next salary (the same forecast as on the overview)
+    const payday = nextPaydayDate();
+    const due = payday ? recurringDebits(payday).reduce((t, x) => t + x.amount, 0) : 0;
+    $('bcDueW').hidden = !payday;
+    if (payday) $('bcDueLabel').textContent = 'Fixe Abbuchungen bis ' + fDate.format(fromISO(payday));
+    // What the budgets and the savings goal still allow this month
+    const st = monthStats(currentPeriod());
+    let open = 0;
+    CATS.filter((c) => canBudget(c) && S.budgets[c.id]).forEach((c) => {
+      const used = -(st.by[c.id] || 0);
+      open += Math.max(0, S.budgets[c.id] - used);
+    });
+    const left = sum - due - open;
+    $('bcAvail').textContent = fmt(sum);
+    $('bcDue').textContent = fmt(due);
+    $('bcOpen').textContent = fmt(open);
+    $('bcLeft').textContent = fmt(left);
+    $('bcLeft').classList.toggle('neg', left < 0);
+    $('bcNote').textContent = left < 0
+      ? 'Mit diesen Budgets reicht das Geld auf deinen Konten voraussichtlich nicht bis zum Gehalt. Senke ein Budget.'
+      : 'So viel bleibt übrig, wenn du alle Budgets ausgibst und die fixen Abbuchungen bezahlt sind. Du kannst es noch einplanen.';
+  }
   function renderBudgetSummary() {
+    renderBudgetCash();
     let sum = 0, goal = 0;
     CATS.forEach((c) => {
       if (!S.budgets[c.id] || !canBudget(c)) return;
