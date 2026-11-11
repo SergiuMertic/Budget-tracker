@@ -930,7 +930,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '25';
+  const APP_VERSION = '26';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2758,39 +2758,63 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     renderBudgetSummary();
   }
   /* ---------- Subscriptions ---------- */
-  const SUB_LABEL = { 1: 'monatlich', 3: 'vierteljährlich', 6: 'halbjährlich', 12: 'jährlich' };
+  const SUB_LABEL = { 1: 'monatlich', 2: 'alle 2 Monate', 3: 'vierteljährlich', 6: 'halbjährlich', 12: 'jährlich' };
   const daysBetween = (a, b) => Math.round((fromISO(b) - fromISO(a)) / 86400000);
-  // Groups all "abos" payments by payee, works out how often each is charged and what it costs per month
+  // Groups the "abos" payments into subscriptions: one per payee and price, so several services booked under the same
+  // payee (the App Store, for example) stay apart, while a price change continues the same subscription.
   function subscriptions() {
-    const groups = {};
+    const byPayee = {};
     S.tx.forEach((t) => {
       if (t.c !== 'abos' || t.a >= 0 || !inScope(t)) return;
       const payee = recurringPayee(t);
       if (!payee) return;
-      const g = groups[payee] || (groups[payee] = { name: '', days: {} });
-      g.days[t.d] = (g.days[t.d] || 0) + -t.a;
-      if (!g.name || t.d >= g.last) { g.name = clip(t.n || t.p, 40); g.last = t.d; }
+      (byPayee[payee] = byPayee[payee] || []).push(t);
     });
     const now = today();
     const active = [], ended = [];
-    Object.keys(groups).forEach((payee) => {
-      const g = groups[payee];
-      const dates = Object.keys(g.days).sort();
-      // Charges a few days apart (double postings) count as one
-      const dist = dates.filter((d, i) => !i || daysBetween(dates[i - 1], d) > 5);
-      let months;
-      if (dist.length >= 2) {
-        const gaps = [];
-        for (let i = 1; i < dist.length; i++) gaps.push(daysBetween(dist[i - 1], dist[i]));
-        const gap = medianNumber(gaps);
-        months = gap <= 45 ? 1 : gap <= 135 ? 3 : gap <= 250 ? 6 : 12;
-      } else if (daysBetween(dates[0], now) <= 40) months = 1;
-      else return;
-      const last = dates[dates.length - 1];
-      const prev = dist.length >= 2 ? g.days[dist[dist.length - 2]] : 0;
-      const next = dateInMonth(shiftMonth(last.slice(0, 7), months), Number(last.slice(8, 10)));
-      const item = { name: g.name, months: months, last: last, next: next, prev: prev, amount: g.days[last], perMonth: Math.round(g.days[last] / months) };
-      (daysBetween(last, now) <= months * 30.4 + 15 ? active : ended).push(item);
+    Object.keys(byPayee).forEach((payee) => {
+      const txs = byPayee[payee];
+      const count = {};
+      txs.forEach((t) => { count[t.a] = (count[t.a] || 0) + 1; });
+      // One group per price that repeats, one per single payment
+      const groups = {};
+      txs.forEach((t) => {
+        const key = count[t.a] > 1 ? 'p' + t.a : 's' + t.id;
+        const g = groups[key] || (groups[key] = { days: {}, first: t.d, last: t.d, name: '', amt: -t.a });
+        g.days[t.d] = (g.days[t.d] || 0) + -t.a;
+        if (t.d < g.first) g.first = t.d;
+        if (t.d >= g.last) { g.last = t.d; g.name = clip(t.n || t.p, 40); g.amt = -t.a; }
+      });
+      // A price change continues the earlier group: it starts after that one ended, within 60 days, at a similar price
+      const chains = [];
+      Object.keys(groups).map((k) => groups[k]).sort((a, b) => a.first.localeCompare(b.first)).forEach((g) => {
+        const host = chains.filter((c) => g.first > c.last && daysBetween(c.last, g.first) <= 60 && Math.abs(g.amt - c.amt) <= c.amt * 0.4)
+          .sort((a, b) => b.last.localeCompare(a.last))[0];
+        if (host) {
+          Object.keys(g.days).forEach((d) => { host.days[d] = (host.days[d] || 0) + g.days[d]; });
+          host.last = g.last; host.name = g.name; host.amt = g.amt;
+        } else chains.push(g);
+      });
+      chains.forEach((g) => {
+        const dates = Object.keys(g.days).sort();
+        // Charges a few days apart (double postings) count as one
+        const dist = dates.filter((d, i) => !i || daysBetween(dates[i - 1], d) > 5);
+        let months;
+        if (dist.length >= 2) {
+          const gaps = [];
+          for (let i = 1; i < dist.length; i++) gaps.push(daysBetween(dist[i - 1], dist[i]));
+          const gap = medianNumber(gaps);
+          // Longer intervals must be regular, otherwise it is just a shop visited now and then
+          if (gap > 45 && gaps.some((x) => Math.abs(x - gap) > Math.max(10, gap * 0.35))) return;
+          months = gap <= 45 ? 1 : gap <= 75 ? 2 : gap <= 135 ? 3 : gap <= 250 ? 6 : 12;
+        } else if (daysBetween(dates[0], now) <= 40) months = 1;
+        else return;
+        const last = dist[dist.length - 1];
+        const prev = dist.length >= 2 ? g.days[dist[dist.length - 2]] : 0;
+        const next = dateInMonth(shiftMonth(last.slice(0, 7), months), Number(last.slice(8, 10)));
+        const item = { name: g.name, months: months, last: last, next: next, prev: prev, amount: g.days[last], perMonth: Math.round(g.days[last] / months) };
+        (daysBetween(last, now) <= months * 30.4 + 15 ? active : ended).push(item);
+      });
     });
     const byCost = (a, b) => b.perMonth - a.perMonth || a.name.localeCompare(b.name);
     return { active: active.sort(byCost), ended: ended.sort(byCost) };
@@ -2941,7 +2965,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   /* ---------- Yearly and rare costs ---------- */
   // Payments that come once a year with a steady amount: yearly subscriptions and bills like the vehicle tax.
   // A single payment counts when the payee is a known yearly bill (the history may only hold one).
-  const YEARLY_HINT = wordsRe(['HAUPTZOLLAMT', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'JAHRESBEITRAG', 'JAHRESGEBUEHR', 'JAHRESABO', 'JAHRESRECHNUNG']);
+  const YEARLY_HINT = wordsRe(['HAUPTZOLLAMT', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ADAC', 'JAHRESBEITRAG', 'JAHRESGEBUEHR', 'JAHRESABO', 'JAHRESRECHNUNG']);
   // Only bill-like categories: a shop or restaurant visited a year apart is not a yearly cost
   const YEARLY_CATS = { abos: 1, versicherung: 1, mobil: 1, gebuehren: 1, wohnen: 1, handy: 1, freizeit: 1 };
   function periodicCosts() {

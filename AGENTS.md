@@ -140,6 +140,8 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
   - **Yearly costs** (`periodicCosts`, `renderPeriodic`, v25: only yearly): payments about once a year with a steady amount, in bill-like categories (`YEARLY_CATS`: abos, versicherung, mobil, gebuehren, wohnen, handy, freizeit) and at least 15 €, shown in a collapsed Budgets card with the monthly share. A single payment counts when the payee is a known yearly bill (`YEARLY_HINT`, for example Hauptzollamt). Yearly subscriptions appear here and in the Abos card. A due payment within 30 days also appears as an insight.
   - **Monthly review** (`openReview`): the button "Monatsrückblick" on the Overview opens a sheet for the shown month with result, change against last month, fixed versus other costs, top 3 categories, budgets kept and the biggest single expense.
 
+- **Subscriptions split by price (v26)**: `subscriptions()` now makes one subscription per payee and repeating price, so several services under one payee (all App Store charges are booked as APPLE.COM/BILL) stay apart. A later single charge at a similar price within 60 days continues the earlier one (price change). Intervals: monthly, every 2 months, quarterly, half-yearly, yearly; longer intervals must be regular. "ADAC" is a yearly-bill hint (single payment counts).
+
 ## Open tasks (in the owner's order of priority)
 
 1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.

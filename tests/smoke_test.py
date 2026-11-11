@@ -459,6 +459,26 @@ def main():
             check('monthly review shows income, spending and budgets', 'Einnahmen' in rev and 'Ausgaben' in rev and 'Fixkosten' in rev and 'Budgets' in rev and 'Größter Einzelposten' in rev, rev[:200])
             page.click('#revClose')
 
+            # Several subscriptions under one payee (App Store) stay apart, and an every-2-months charge is recognised
+            page.evaluate("""() => {
+                const now = new Date();
+                const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                const ago = (days) => { const d = new Date(now); d.setDate(d.getDate() - days); return iso(d); };
+                let n = 0; const tx = [];
+                const mk = (d, a) => tx.push({ id: 'ap' + (++n), d: d, a: a, n: 'APPLE.COM/BILL', p: '', t: '', acc: 'Example Checking', c: 'abos', src: 'r', k: 'ap' + n });
+                for (let i = 0; i < 5; i++) { mk(ago(10 + 30 * i), -99); mk(ago(15 + 30 * i), -449); }
+                for (let i = 0; i < 4; i++) mk(ago(20 + 61 * i), -299);
+                mk(ago(400), -799);
+                const data = { v: 1, tx: tx, budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' };
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-budgets')
+            page.click('#subsCard summary')
+            ap = page.evaluate("() => ({ rows: Array.from(subsList.children).map((li) => li.textContent.replace(/\\s+/g, ' ')), month: subsMonth.textContent })")
+            check('App Store charges are split by price and the 2-month one is recognised', len(ap['rows']) == 3 and any('alle 2 Monate' in r and '2,99' in r for r in ap['rows']) and abs(num(ap['month']) - (0.99 + 4.49 + 1.50)) < 0.011, ap)
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)
