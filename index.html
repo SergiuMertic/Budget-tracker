@@ -212,6 +212,12 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-h
 .payday-meta { color: var(--muted); font-size: 13px; }
 .payday-amount { flex: none; font-weight: 600; white-space: nowrap; }
 .sub-off { opacity: .6; }
+.fixed-card summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; cursor: pointer; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.fixed-card summary::-webkit-details-marker { display: none; }
+.fixed-card summary::after { content: '⌄'; color: var(--muted); margin-left: 4px; }
+.fixed-card[open] summary::after { content: '⌃'; }
+.fixed-card .list { margin-top: 8px; }
+.fixed-card .brow > .num { justify-self: end; font-weight: 600; }
 .donut-card { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; align-items: center; }
 .donut-card svg { width: 132px; height: 132px; display: block; }
 .donut-card .seg-c { cursor: pointer; transition: opacity .15s; }
@@ -654,9 +660,14 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       <div class="hero-big num" id="budgetTotal">0 €</div>
       <div class="hero-meta num" id="budgetMeta"></div>
     </div>
-    <p class="card-text">Lege fest, wie viel du pro Monat in jeder Kategorie ausgeben möchtest. Leer lassen heißt kein Budget. Beim Sparen ist der Betrag dein Sparziel.</p>
+    <p class="card-text">Lege fest, wie viel du pro Monat in jeder Kategorie ausgeben möchtest, die du selbst steuern kannst. Leer lassen heißt kein Budget. Beim Sparen ist der Betrag dein Sparziel.</p>
     <button type="button" class="secondary" id="suggestBtn">Leere Budgets mit Ø der letzten 3 Monate füllen</button>
     <ul class="list" id="budgetList"></ul>
+    <details class="card fixed-card" id="fixedCard">
+      <summary><span>Fixkosten</span><span class="num" id="fixedTotal"></span></summary>
+      <p class="card-text">Diese Kosten ändern sich kaum und brauchen kein Budget. Gezeigt wird dein Durchschnitt der letzten 3 Monate.</p>
+      <ul class="list" id="fixedList"></ul>
+    </details>
     <section class="card payday-card" id="subsCard" aria-labelledby="subsTitle" hidden>
       <div class="section-head"><h2 id="subsTitle">Abos</h2></div>
       <div class="payday-summary">
@@ -664,8 +675,6 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         <div class="payday-stat"><span>Pro Jahr</span><strong class="num" id="subsYear">–</strong></div>
       </div>
       <ul class="payday-list" id="subsList"></ul>
-      <p class="card-text" id="subsEndedHead" hidden>Wahrscheinlich beendet (nicht mitgezählt)</p>
-      <ul class="payday-list sub-off" id="subsEnded" hidden></ul>
       <p class="card-text" id="subsNote"></p>
     </section>
     <div class="card">
@@ -856,7 +865,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '18';
+  const APP_VERSION = '19';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -1034,6 +1043,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   const kindOf = (id) => (CAT[id] ? CAT[id].kind : 'out');
 
   const CASH = 'Bargeld';
+  // Budgets: fixed costs get no budget (they are listed apart with their usual amount); own-account moves are not spending
+  const FIXED_CATS = { wohnen: 1, versicherung: 1, handy: 1, kredit: 1, gebuehren: 1, abos: 1 };
+  const NO_BUDGET_CATS = { bargeld: 1, eigene: 1 };
+  const isFixedCat = (id) => !!FIXED_CATS[id];
+  const canBudget = (c) => (c.kind === 'out' || c.kind === 'save') && !FIXED_CATS[c.id] && !NO_BUDGET_CATS[c.id];
   // Household view: accounts of the partner count only in "Haushalt"; "Nur ich" leaves them out of all numbers
   const isPartnerAcc = (acc) => S.opts.partnerAccs.indexOf(acc) >= 0;
   const inScope = (t) => !!S.opts.household || !isPartnerAcc(t.acc);
@@ -2049,7 +2063,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     bar.querySelector('.r').style.width = Math.max(0, left) / base * 100 + '%';
 
     let budgetSum = 0;
-    CATS.forEach((c) => { if (c.kind === 'out' && S.budgets[c.id]) budgetSum += S.budgets[c.id]; });
+    CATS.forEach((c) => { if (c.kind === 'out' && canBudget(c) && S.budgets[c.id]) budgetSum += S.budgets[c.id]; });
     $('heroMeta').textContent = budgetSum
       ? fmt0(Math.max(0, st.out)) + ' von ' + fmt0(budgetSum) + ' Budget ausgegeben' + (st.out > budgetSum ? ' · ' + fmt0(st.out - budgetSum) + ' darüber' : ' · noch ' + fmt0(budgetSum - st.out))
       : st.count ? 'Noch keine Budgets. Lege sie unter Budgets fest.' : 'Keine Umsätze in diesem Monat.';
@@ -2627,8 +2641,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const ul = $('budgetList');
     if (ul.contains(document.activeElement)) { renderBudgetSummary(); return; }
     const av = averages();
+    renderFixed(av);
     ul.textContent = '';
-    CATS.filter((c) => c.kind === 'out' || c.kind === 'save').forEach((c) => {
+    CATS.filter(canBudget).forEach((c) => {
       const li = el('li', 'brow');
       li.appendChild(catIcon(c));
       const meta = el('span', 'bmeta');
@@ -2709,19 +2724,19 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function renderSubs() {
     const subs = subscriptions();
     const card = $('subsCard');
-    card.hidden = !subs.active.length && !subs.ended.length;
+    card.hidden = !subs.active.length;
     if (card.hidden) return;
     const month = subs.active.reduce((s, x) => s + x.perMonth, 0);
     $('subsMonth').textContent = fmt(month);
     $('subsYear').textContent = fmt(subs.active.reduce((s, x) => s + x.amount * 12 / x.months, 0));
-    const fill = (ul, items, ended) => {
+    const fill = (ul, items) => {
       ul.textContent = '';
       items.forEach((x) => {
         const li = el('li');
         const d = el('span', 'payday-detail');
         d.appendChild(el('span', 'payday-name', x.name));
-        d.appendChild(el('span', 'payday-meta', SUB_LABEL[x.months] + ' · ' + (ended ? 'zuletzt ' + fDate.format(fromISO(x.last)) : 'nächste ca. ' + fDate.format(fromISO(x.next)))));
-        if (!ended && x.prev && x.amount > x.prev * 1.02) d.appendChild(el('span', 'payday-meta', 'Teurer geworden: vorher ' + fmt(x.prev)));
+        d.appendChild(el('span', 'payday-meta', SUB_LABEL[x.months] + ' · ' + 'nächste ca. ' + fDate.format(fromISO(x.next))));
+        if (x.prev && x.amount > x.prev * 1.02) d.appendChild(el('span', 'payday-meta', 'Teurer geworden: vorher ' + fmt(x.prev)));
         li.appendChild(d);
         const a = el('span', 'payday-amount num');
         a.appendChild(document.createTextNode(fmt(x.amount)));
@@ -2732,14 +2747,31 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     };
     fill($('subsList'), subs.active);
     $('subsList').hidden = !subs.active.length;
-    fill($('subsEnded'), subs.ended, true);
-    $('subsEnded').hidden = $('subsEndedHead').hidden = !subs.ended.length;
     $('subsNote').textContent = 'Aus allen Umsätzen der Kategorie "Abos & Streaming". Bei mehreren Zahlungen zählt der letzte Betrag.';
+  }
+  function renderFixed(av) {
+    const ul = $('fixedList');
+    ul.textContent = '';
+    let total = 0;
+    CATS.filter((c) => FIXED_CATS[c.id] && c.kind === 'out').forEach((c) => {
+      const a = Math.max(0, av.avg[c.id] || 0);
+      if (!a) return;
+      total += a;
+      const li = el('li', 'brow');
+      li.appendChild(catIcon(c));
+      const meta = el('span', 'bmeta');
+      meta.appendChild(el('span', 'cname', c.name));
+      li.appendChild(meta);
+      li.appendChild(el('span', 'num', fmt0(a)));
+      ul.appendChild(li);
+    });
+    $('fixedCard').hidden = !total;
+    $('fixedTotal').textContent = total ? fmt0(total) + ' pro Monat' : '';
   }
   function renderBudgetSummary() {
     let sum = 0, goal = 0;
     CATS.forEach((c) => {
-      if (!S.budgets[c.id]) return;
+      if (!S.budgets[c.id] || !canBudget(c)) return;
       if (c.kind === 'out') sum += S.budgets[c.id];
       if (c.kind === 'save') goal += S.budgets[c.id];
     });
@@ -3370,7 +3402,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (!av.n) { toast('Noch keine Umsätze für einen Vorschlag.'); return; }
     let filled = 0;
     CATS.forEach((c) => {
-      if (c.kind !== 'out' || S.budgets[c.id]) return;
+      if (c.kind !== 'out' || !canBudget(c) || S.budgets[c.id]) return;
       const a = av.avg[c.id] || 0;
       if (a <= 0) return;
       S.budgets[c.id] = Math.ceil(a / 1000) * 1000; // round up to 10 €

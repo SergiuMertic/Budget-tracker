@@ -302,11 +302,10 @@ def main():
             page.wait_for_timeout(300)
             page.click('#tab-budgets')
             subs = page.evaluate("""() => ({ month: subsMonth.textContent, year: subsYear.textContent,
-                rows: Array.from(subsList.querySelectorAll('li')).map((li) => li.innerText),
-                ended: Array.from(subsEnded.querySelectorAll('li')).map((li) => li.innerText) })""")
+                rows: Array.from(subsList.querySelectorAll('li')).map((li) => li.innerText), card: subsCard.innerText })""")
             check('subscriptions: 3 active, sorted by monthly cost', len(subs['rows']) == 3 and 'NETFLIX' in subs['rows'][0] and 'ADOBE' in subs['rows'][1] and 'SPOTIFY' in subs['rows'][2], subs)
             check('subscriptions: monthly and yearly totals', abs(num(subs['month']) - (10 + 12.99 + 5.99)) < 0.005 and abs(num(subs['year']) - (120 + 12 * (12.99 + 5.99))) < 0.005, subs)
-            check('subscriptions: ended one is listed apart', len(subs['ended']) == 1 and 'DAZN' in subs['ended'][0], subs)
+            check('subscriptions: ended one is hidden', 'DAZN' not in subs['card'] and len(subs['rows']) == 3, subs)
 
             check('subscriptions: next charge and price rise shown', 'nächste ca.' in subs['rows'][0] and 'Teurer geworden' in subs['rows'][2], subs)
 
@@ -350,6 +349,17 @@ def main():
             page.wait_for_timeout(300)
             page.click('#tab-overview')
             check('backup reminder shown when no backup was made', page.is_visible('#backupHint'))
+
+            # Budgets: fixed costs are listed apart and get no budget
+            page.evaluate(base, {'tx': [
+                {'id': 'f1', 'd': TODAY, 'a': -80000, 'n': 'Vermieter', 'p': 'Miete', 't': '', 'acc': 'Example Checking', 'c': 'wohnen', 'src': 'r', 'k': 'f1'},
+                {'id': 'f2', 'd': TODAY, 'a': -9000, 'n': 'REWE', 'p': '', 't': '', 'acc': 'Example Checking', 'c': 'lebensmittel', 'src': 'r', 'k': 'f2'}]})
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-budgets')
+            lists = page.evaluate("() => ({ budget: budgetList.innerText, fixed: fixedList.textContent, total: fixedTotal.textContent, visible: !fixedCard.hidden })")
+            check('budget list has flexible categories only', 'Lebensmittel' in lists['budget'] and 'Wohnen' not in lists['budget'] and 'Versicherungen' not in lists['budget'] and 'Eigene Konten' not in lists['budget'], lists)
+            check('fixed costs listed apart with their average', lists['visible'] and 'Wohnen' in lists['fixed'] and '800' in lists['total'], lists)
 
             # Version shown and service worker registered
             note = page.text_content('#note')

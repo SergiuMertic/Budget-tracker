@@ -125,6 +125,8 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 - **Visuals (v18)**: spending ring (`renderDonut`, top 5 categories plus "Übrige", tappable), change against the month before per category (`cdelta`), insight sentences (`renderInsights`: budget pace, big rise against last month, subscription price rise, renewal within 7 days), daily spending pace and a step-line balance chart to payday in "Bis zum Gehalt" (`renderPaydayChart`). All plain SVG. Note: SVG elements have no `.hidden` property, use `toggleAttribute('hidden', ...)`.
 
+- **Budget split (v19)**: the Budgets tab lists only categories you can steer (`canBudget`). Fixed costs (`FIXED_CATS`: wohnen, versicherung, handy, kredit, gebuehren, abos) sit in a collapsed "Fixkosten" card with their 3-month average and a total, and `NO_BUDGET_CATS` (bargeld, eigene) are left out. Budget totals, the overview budget line and "Leere Budgets füllen" ignore fixed categories. Ended subscriptions are no longer shown in the Abos card.
+
 ## Open tasks (in the owner's order of priority)
 
 1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.
