@@ -131,6 +131,8 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 - **Money on the Budgets tab (v21)**: the card "Auf deinen Konten" (`renderBudgetCash`, called from `renderBudgetSummary`) shows the spendable balances (no savings, cards listed as "Kreditkarten offen", partner accounts only in Haushalt), the fixed debits until payday (same forecast as the overview), what the budgets and savings goal still allow this month, and what is left after that. It updates as you type a budget.
 
+- **Swipe between tabs (v22)**: a horizontal swipe (at least 70 px, mostly horizontal, under 0.7 s) moves to the next or previous tab in the order Übersicht, Umsätze, Budgets, Daten. Ignored while a sheet is open, in fields, and within 24 px of the screen edge (so the iOS back gesture still works).
+
 ## Open tasks (in the owner's order of priority)
 
 1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.

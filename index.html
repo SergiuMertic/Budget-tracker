@@ -876,7 +876,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '21';
+  const APP_VERSION = '22';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -3539,6 +3539,28 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 
   /* ---------- Wiring ---------- */
   $$('.tabs button').forEach((b) => b.addEventListener('click', () => setTab(b.getAttribute('data-tab'))));
+  // Swipe left or right to move between the tabs (not while a sheet is open, not in fields, not from the screen edge)
+  const TAB_ORDER = ['overview', 'tx', 'budgets', 'data'];
+  let swipe = null;
+  document.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    const blocked = e.touches.length !== 1 || document.querySelector('dialog[open]') || t.clientX < 24 || t.clientX > window.innerWidth - 24 || (e.target.closest && e.target.closest('input, textarea, select'));
+    swipe = blocked ? null : { x: t.clientX, y: t.clientY, t: Date.now() };
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    const sw = swipe;
+    swipe = null;
+    if (!sw || !e.changedTouches.length) return;
+    const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.6 || Date.now() - sw.t > 700) return;
+    const i = TAB_ORDER.indexOf(S.tab), j = i + (dx < 0 ? 1 : -1);
+    if (i < 0 || j < 0 || j >= TAB_ORDER.length) return;
+    setTab(TAB_ORDER[j]);
+    const view = $('view-' + TAB_ORDER[j]);
+    if (view.animate && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      view.animate([{ transform: 'translateX(' + (dx < 0 ? 28 : -28) + 'px)', opacity: 0.2 }, { transform: 'none', opacity: 1 }], { duration: 180, easing: 'ease-out' });
+    }
+  }, { passive: true });
   $$('[data-month]').forEach((b) => b.addEventListener('click', () => moveMonth(Number(b.getAttribute('data-month')))));
   $$('[data-action="pick-csv"]').forEach((b) => b.addEventListener('click', () => {
     if (S.tab !== 'data') setTab('data');

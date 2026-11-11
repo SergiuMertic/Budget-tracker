@@ -379,6 +379,29 @@ def main():
             bc = page.evaluate("() => ({ open: bcOpen.textContent, left: bcLeft.textContent })")
             check('changing a budget updates what is left', abs(num(bc['open']) - 310) < 0.005 and abs(num(bc['left']) - 690) < 0.005, bc)
 
+            # Swiping left and right moves between the tabs
+            page.click('#tab-overview')
+
+            def swipe(x0, y0, x1, y1):
+                page.evaluate("""([x0, y0, x1, y1]) => {
+                    const mk = (type, x, y) => {
+                        const t = new Touch({ identifier: 1, target: document.body, clientX: x, clientY: y });
+                        document.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [t], changedTouches: [t] }));
+                    };
+                    mk('touchstart', x0, y0);
+                    mk('touchend', x1, y1);
+                }""", [x0, y0, x1, y1])
+                page.wait_for_timeout(250)
+            sel = lambda: page.evaluate("document.querySelector('.tabs [aria-selected=true]').dataset.tab")
+            swipe(300, 400, 100, 410)
+            check('swipe left opens the next tab', sel() == 'tx', sel())
+            swipe(100, 400, 300, 405)
+            check('swipe right goes back', sel() == 'overview', sel())
+            swipe(100, 400, 300, 405)
+            check('no tab before the first one', sel() == 'overview', sel())
+            swipe(300, 300, 280, 600)
+            check('a mostly vertical move does not switch tabs', sel() == 'overview', sel())
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)
