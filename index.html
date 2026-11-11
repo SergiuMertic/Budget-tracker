@@ -930,7 +930,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '26';
+  const APP_VERSION = '27';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2804,7 +2804,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           const gaps = [];
           for (let i = 1; i < dist.length; i++) gaps.push(daysBetween(dist[i - 1], dist[i]));
           const gap = medianNumber(gaps);
-          // Longer intervals must be regular, otherwise it is just a shop visited now and then
+          // Payments a few days apart are purchases, not a subscription. Intervals of 2 to 6 months need at least 3 charges
+          // and must be regular, otherwise it is just a shop visited now and then.
+          if (gap < 24) return;
+          if (gap > 45 && gap < 300 && dist.length < 3) return;
           if (gap > 45 && gaps.some((x) => Math.abs(x - gap) > Math.max(10, gap * 0.35))) return;
           months = gap <= 45 ? 1 : gap <= 75 ? 2 : gap <= 135 ? 3 : gap <= 250 ? 6 : 12;
         } else if (daysBetween(dates[0], now) <= 40) months = 1;
