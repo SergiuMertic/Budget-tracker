@@ -660,12 +660,19 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       <div class="hero-big num" id="budgetTotal">0 €</div>
       <div class="hero-meta num" id="budgetMeta"></div>
     </div>
+    <section class="card payday-card" id="expCard" aria-labelledby="expTitle">
+      <div class="section-head"><h2 id="expTitle">Erwartetes Einkommen</h2><span class="num" id="expTotal"></span></div>
+      <p class="card-text" id="expHelp">Trage Gehalt oder Extras ein, die noch kommen, zum Beispiel das Gehalt deiner Partnerin oder Weihnachtsgeld. Sie zählen in „Danach übrig“.</p>
+      <ul class="payday-list" id="expList" hidden></ul>
+      <button type="button" class="secondary" id="expAdd">Einkommen hinzufügen</button>
+    </section>
     <section class="card payday-card" id="budgetCash" aria-labelledby="bcTitle" hidden>
       <div class="section-head"><h2 id="bcTitle">Auf deinen Konten</h2><span class="num" id="bcStand"></span></div>
       <ul class="payday-list" id="bcList"></ul>
       <div class="payday-summary">
         <div class="payday-stat"><span>Verfügbar</span><strong class="num" id="bcAvail">–</strong></div>
         <div class="payday-stat" id="bcDueW"><span id="bcDueLabel">Fixe Abbuchungen</span><strong class="num" id="bcDue">–</strong></div>
+        <div class="payday-stat" id="bcIncW" hidden><span>Erwartetes Einkommen</span><strong class="num" id="bcInc">–</strong></div>
         <div class="payday-stat"><span>Budgets noch offen</span><strong class="num" id="bcOpen">–</strong></div>
         <div class="payday-stat"><span>Danach übrig</span><strong class="num" id="bcLeft">–</strong></div>
       </div>
@@ -844,6 +851,24 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   </form>
 </dialog>
 
+<!-- Expected income -->
+<dialog class="sheet" id="expSheet" aria-labelledby="expSheetTitle">
+  <form class="sheet-in" id="expForm" method="dialog" novalidate>
+    <div class="grab" aria-hidden="true"></div>
+    <h2 id="expSheetTitle">Erwartetes Einkommen</h2>
+    <label class="lbl">Wofür
+      <input type="text" class="field" id="expName" maxlength="40" placeholder="z. B. Gehalt Partnerin, Weihnachtsgeld" autocomplete="off">
+    </label>
+    <div class="filters">
+      <label class="lbl">Betrag (netto) <span class="money"><input type="text" inputmode="decimal" class="field num" id="expAmt" placeholder="0,00" autocomplete="off"><span>€</span></span></label>
+      <label class="lbl">Erwartet am <input type="date" class="field" id="expDate"></label>
+    </div>
+    <p class="card-msg danger" id="expErr" hidden></p>
+    <button type="button" class="primary" id="expSave">Speichern</button>
+    <button type="button" class="textbtn" id="expCancel">Abbrechen</button>
+  </form>
+</dialog>
+
 <!-- Account balance -->
 <dialog class="sheet" id="balSheet" aria-labelledby="balSheetTitle">
   <form class="sheet-in" id="balForm" method="dialog" novalidate>
@@ -876,7 +901,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '22';
+  const APP_VERSION = '23';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -1019,7 +1044,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     budgets: {},     // category id -> cents per month
     owner: '',       // account holder name from the statements (stays on this device)
     bal: {},         // account name -> { d, a }: balance at the end of day d (cents)
-    opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false },
+    opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false, expected: [] },
     rules: [],       // { id, k: keyword (normalized), c: category id }
     cats: [],        // custom categories
     month: thisMonth(),
@@ -1178,7 +1203,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   function cleanData(raw) {
-    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false }, owner: '' };
+    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false, expected: [] }, owner: '' };
     if (!raw || typeof raw !== 'object') return out;
     const ids = {};
     (Array.isArray(raw.cats) ? raw.cats : []).forEach((c, i) => {
@@ -1228,6 +1253,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       out.opts.payday = raw.opts.payday === true;
       out.opts.cashSince = /^\d{4}-\d{2}-\d{2}$/.test(raw.opts.cashSince) ? raw.opts.cashSince : '';
       out.opts.household = raw.opts.household === true;
+      if (Array.isArray(raw.opts.expected)) raw.opts.expected.slice(0, 20).forEach((x) => {
+        const a = Math.round(Number(x && x.a));
+        if (!x || !isFinite(a) || a <= 0 || a > 1e9 || !/^\d{4}-\d{2}-\d{2}$/.test(x.d)) return;
+        out.opts.expected.push({ id: typeof x.id === 'string' && x.id ? x.id.slice(0, 40) : newId(), n: clip(x.n, 40) || 'Einkommen', a: a, d: x.d });
+      });
       if (Array.isArray(raw.opts.partnerAccs)) raw.opts.partnerAccs.slice(0, 10).forEach((n) => { const name = clip(n, 40); if (name && out.opts.partnerAccs.indexOf(name) < 0) out.opts.partnerAccs.push(name); });
       if (raw.opts.cardPaymentDays && typeof raw.opts.cardPaymentDays === 'object' && !Array.isArray(raw.opts.cardPaymentDays)) {
         Object.keys(raw.opts.cardPaymentDays).forEach((key) => {
@@ -1241,9 +1271,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
   function loadData(clean) {
     S.tx = clean.tx; S.budgets = clean.budgets; S.rules = clean.rules; S.cats = clean.cats;
-    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false };
+    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false, expected: [] };
     if (!S.opts.cardPaymentDays) S.opts.cardPaymentDays = {};
     if (!S.opts.partnerAccs) S.opts.partnerAccs = [];
+    if (!S.opts.expected) S.opts.expected = [];
     if (S.opts.cashManual && !S.opts.cashSince) S.opts.cashSince = S.bal[CASH] ? S.bal[CASH].d : today(); S.owner = clean.owner || '';
     migrateAccounts();
     rebuildCats();
@@ -2780,6 +2811,63 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('fixedCard').hidden = !total;
     $('fixedTotal').textContent = total ? fmt0(total) + ' pro Monat' : '';
   }
+  // Income you entered that has not arrived yet; items dated before today are assumed to be in the balance already
+  function expectedIncome() {
+    const now = today();
+    const items = S.opts.expected.slice().sort((a, b) => a.d.localeCompare(b.d));
+    return { items: items, total: items.filter((x) => x.d >= now).reduce((sum, x) => sum + x.a, 0) };
+  }
+  function renderExpected() {
+    const exp = expectedIncome(), list = $('expList');
+    list.textContent = '';
+    list.hidden = !exp.items.length;
+    exp.items.forEach((x) => {
+      const past = x.d < today();
+      const li = el('li');
+      if (past) li.style.opacity = '0.55';
+      const d = el('span', 'payday-detail');
+      d.appendChild(el('span', 'payday-name', x.n));
+      d.appendChild(el('span', 'payday-meta', fDate.format(fromISO(x.d)) + (past ? ' · schon vorbei, zählt nicht mehr' : '')));
+      li.appendChild(d);
+      li.appendChild(el('span', 'payday-amount num', fmt(x.a)));
+      const del = el('button', 'del');
+      del.type = 'button';
+      del.innerHTML = ICON.x;
+      del.setAttribute('aria-label', x.n + ' löschen');
+      del.addEventListener('click', () => {
+        const before = S.opts.expected.slice();
+        S.opts.expected = S.opts.expected.filter((y) => y.id !== x.id);
+        save();
+        render();
+        toast('„' + x.n + '“ gelöscht', 'Rückgängig', () => { S.opts.expected = before; save(); render(); });
+      });
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+    $('expTotal').textContent = exp.total ? '+' + fmt(exp.total) : '';
+  }
+  function openExp() {
+    $('expName').value = '';
+    $('expAmt').value = '';
+    const d = fromISO(today());
+    d.setDate(d.getDate() + 1);
+    $('expDate').value = isoDay(d);
+    $('expErr').hidden = true;
+    showDialog($('expSheet'));
+    setTimeout(() => { try { $('expName').focus(); } catch (e) {} }, 60);
+  }
+  function saveExp() {
+    const v = parseUserAmount($('expAmt').value), d = $('expDate').value, err = $('expErr');
+    if (!isFinite(v) || v <= 0) { err.textContent = 'Bitte einen Betrag eingeben, z. B. 2419.'; err.hidden = false; return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { err.textContent = 'Bitte ein Datum wählen.'; err.hidden = false; return; }
+    if (S.opts.expected.length >= 20) { err.textContent = 'Mehr als 20 Einträge sind nicht möglich. Lösche alte Einträge.'; err.hidden = false; return; }
+    const item = { id: newId(), n: clip($('expName').value, 40) || 'Einkommen', a: v, d: d };
+    S.opts.expected.push(item);
+    if (!save()) { S.opts.expected.pop(); return; }
+    hideDialog($('expSheet'));
+    render();
+    toast(item.n + ' eingetragen');
+  }
   // Money on the accounts you can spend from (not savings, not cards), for planning budgets without leaving this tab
   function renderBudgetCash() {
     const card = $('budgetCash');
@@ -2818,7 +2906,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const used = -(st.by[c.id] || 0);
       open += Math.max(0, S.budgets[c.id] - used);
     });
-    const left = sum - due - open;
+    const exp = expectedIncome();
+    const left = sum + exp.total - due - open;
+    $('bcIncW').hidden = !exp.total;
+    $('bcInc').textContent = '+' + fmt(exp.total);
     $('bcAvail').textContent = fmt(sum);
     $('bcDue').textContent = fmt(due);
     $('bcOpen').textContent = fmt(open);
@@ -2826,9 +2917,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('bcLeft').classList.toggle('neg', left < 0);
     $('bcNote').textContent = left < 0
       ? 'Mit diesen Budgets reicht das Geld auf deinen Konten voraussichtlich nicht bis zum Gehalt. Senke ein Budget.'
-      : 'So viel bleibt übrig, wenn du alle Budgets ausgibst und die fixen Abbuchungen bezahlt sind. Du kannst es noch einplanen.';
+      : 'So viel bleibt übrig, wenn du alle Budgets ausgibst und die fixen Abbuchungen bezahlt sind' + (exp.total ? ', mit dem erwarteten Einkommen.' : '.') + ' Du kannst es noch einplanen.';
   }
   function renderBudgetSummary() {
+    renderExpected();
     renderBudgetCash();
     let sum = 0, goal = 0;
     CATS.forEach((c) => {
@@ -3578,6 +3670,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     else { importMsg('Bitte wähle entweder eine CSV-Datei oder einen oder mehrere PDF-Kontoauszüge.'); e.target.value = ''; }
   });
   $$('#scopeSeg button').forEach((b) => b.addEventListener('click', () => { S.opts.household = b.getAttribute('data-scope') === 'home'; save(); render(); }));
+  $('expAdd').addEventListener('click', openExp);
+  $('expSave').addEventListener('click', saveExp);
+  $('expCancel').addEventListener('click', () => hideDialog($('expSheet')));
   $('backupHint').addEventListener('click', () => setTab('data'));
   $('openHint').addEventListener('click', () => { S.filterCat = '_open'; S.query = ''; setTab('tx'); });
   $('catFilter').addEventListener('change', (e) => { S.filterCat = e.target.value; renderTx(); });

@@ -402,6 +402,21 @@ def main():
             swipe(300, 300, 280, 600)
             check('a mostly vertical move does not switch tabs', sel() == 'overview', sel())
 
+            # Expected income counts in what is left
+            page.click('#tab-budgets')
+            page.click('#expAdd')
+            page.wait_for_selector('#expSheet[open]')
+            page.fill('#expName', 'Gehalt Partnerin')
+            page.fill('#expAmt', '2419')
+            page.click('#expSave')
+            page.wait_for_timeout(300)
+            ex = page.evaluate("() => ({ inc: bcInc.textContent, left: bcLeft.textContent, total: expTotal.textContent, rows: expList.children.length, stored: JSON.parse(localStorage.getItem('budget.data.v1')).opts.expected.length })")
+            check('expected income added and counted', ex['rows'] == 1 and ex['stored'] == 1 and abs(num(ex['inc'].replace('+', '')) - 2419) < 0.005 and abs(num(ex['left']) - 3109) < 0.005, ex)
+            page.click('#expList .del')
+            page.wait_for_timeout(300)
+            ex = page.evaluate("() => ({ left: bcLeft.textContent, rows: expList.children.length })")
+            check('expected income can be deleted', ex['rows'] == 0 and abs(num(ex['left']) - 690) < 0.005, ex)
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)

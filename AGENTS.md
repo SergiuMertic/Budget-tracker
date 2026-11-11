@@ -133,6 +133,8 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 - **Swipe between tabs (v22)**: a horizontal swipe (at least 70 px, mostly horizontal, under 0.7 s) moves to the next or previous tab in the order Übersicht, Umsätze, Budgets, Daten. Ignored while a sheet is open, in fields, and within 24 px of the screen edge (so the iOS back gesture still works).
 
+- **Expected income (v23)**: the Budgets tab has a card "Erwartetes Einkommen" where you enter income that has not arrived yet (for example the partner's salary or Weihnachtsgeld) with a label, a net amount and a date (`opts.expected`, max 20, saved in the backup). Items dated today or later count in "Danach übrig" of the card "Auf deinen Konten"; older ones are shown muted and ignored.
+
 ## Open tasks (in the owner's order of priority)
 
 1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.
