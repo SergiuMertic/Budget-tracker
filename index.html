@@ -484,6 +484,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           </button>
         </div>
 
+        <div class="seg" id="scopeSeg" role="radiogroup" aria-label="Ansicht" hidden>
+          <button type="button" role="radio" data-scope="me" aria-checked="true">Nur ich</button>
+          <button type="button" role="radio" data-scope="home" aria-checked="false">Haushalt</button>
+        </div>
+
         <div class="hero" id="hero">
           <div class="avail" id="avail">
             <div class="hero-top">
@@ -535,6 +540,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
             Barzahlung oder Umsatz von Hand
           </button>
         </section>
+
+        <button type="button" class="hint" id="backupHint" hidden>
+          <span class="dot" aria-hidden="true"></span>
+          <span id="backupHintText">Backup fehlt</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
 
         <button type="button" class="hint" id="openHint" hidden>
           <span class="dot" aria-hidden="true"></span>
@@ -730,6 +741,16 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     <p class="sh-purpose" id="shPurpose"></p>
     <p class="sh-link" id="shLink" hidden></p>
     <div id="shChips"></div>
+    <div id="shEdit" hidden>
+      <div class="chip-group"><span>Von Hand eingetragen: ändern</span></div>
+      <div class="filters">
+        <label class="lbl">Betrag <span class="money"><input type="text" inputmode="decimal" class="field num" id="shEditAmt" autocomplete="off"><span>€</span></span></label>
+        <label class="lbl">Datum <input type="date" class="field" id="shEditDate"></label>
+      </div>
+      <label class="lbl">Konto <input type="text" class="field" id="shEditAcc" maxlength="40" list="accList" autocomplete="off"></label>
+      <p class="card-msg danger" id="shEditErr" hidden></p>
+      <button type="button" class="secondary" id="shEditSave">Änderung speichern</button>
+    </div>
     <label class="check"><input type="checkbox" id="shRule"> <span>Immer so zuordnen, wenn dieser Text im Umsatz steht:</span></label>
     <input type="text" class="field" id="shRuleKw" maxlength="40" aria-label="Text für die Regel" autocomplete="off">
     <button type="button" class="primary" id="shDone">Fertig</button>
@@ -779,6 +800,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     </div>
     <p class="card-text" id="balPayDayHelp" hidden>Dieser Termin wird für „Bis zum Gehalt“ verwendet. Die Einstellung bleibt auf diesem Gerät.</p>
     <label class="check" id="balNegWrap"><input type="checkbox" id="balNeg"> Konto ist im Minus</label>
+    <label class="check" id="balPartnerWrap"><input type="checkbox" id="balPartner"> Konto gehört zu meinem Partner (zählt nur im Haushalt)</label>
     <p class="card-msg danger" id="balErr" hidden></p>
     <button type="button" class="primary" id="balSave">Speichern</button>
     <button type="button" class="textbtn danger" id="balRemove">Kontostand entfernen</button>
@@ -797,7 +819,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '15';
+  const APP_VERSION = '17';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -905,9 +927,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     ['abos', '', 'AMAZON PRIME', 'PRIME VIDEO', 'NETFLIX', 'SPOTIFY', 'DISNEY', 'APPLE.COM', 'APPLE COM BILL', 'ITUNES', 'GOOGLE PLAY', 'GOOGLE YOUTUBE', 'YOUTUBE', 'YOUTUBEPREMIUM', 'YOUTUBE PREMIUM', 'GOOGLE ONE', 'AMZNPRIME', 'PROTV', 'PRO TV', 'VOYO', 'SCHUFA', 'CONTENT PAKET', 'DAZN', 'SKY', 'AUDIBLE', 'ANTHROPIC', 'CLAUDE.AI', 'OPENAI', 'CHATGPT', 'MICROSOFT', 'ADOBE', 'PLAYSTATION', 'NINTENDO', 'STEAM', 'XBOX', 'PATREON', 'TWITCH', 'CANVA', 'DROPBOX', 'ICLOUD', 'WAIPU', 'JOYN', 'PARAMOUNT', 'CRUNCHYROLL', 'DEEZER', 'TIDAL', 'ELEVENLABS', 'MUBI', 'DISCOVERYPLUS', 'DISCOVERY', 'STRAVA', 'OPENROUTER', 'FINANZFLUSS', 'PINTEREST', 'WIX', 'WIX.COM', 'SURFSHARK', 'NORDVPN'],
     ['wohnen', '', 'MIETE', 'KALTMIETE', 'WARMMIETE', 'NEBENKOSTEN', 'HAUSGELD', 'VONOVIA', 'ANNINGTON', 'VIVAWEST', 'OSTROM', 'LEG IMMOBILIEN', 'LEG WOHNEN', 'STADTWERKE', 'E.ON', 'EON', 'VATTENFALL', 'RWE', 'EWE', 'ENBW', 'GELSENWASSER', 'ENTEGA', 'TIBBER', 'OCTOPUS ENERGY', 'LICHTBLICK', 'YELLO', 'EPRIMO', 'STROM', 'BEITRAGSSERVICE', 'RUNDFUNK', 'ARD ZDF'],
     ['lebensmittel', '', 'REWE', 'EDEKA', 'E CENTER', 'ALDI', 'LIDL', 'KAUFLAND', 'NETTO', 'PENNY', 'NORMA', 'GLOBUS', 'MARKTKAUF', 'TEGUT', 'HIT', 'NAH UND GUT', 'BIOMARKT', 'DENNS', 'ALNATURA', 'BAECKEREI', 'BAECKER', 'BACKSTUBE', 'BACKSHOP', 'METZGEREI', 'FLEISCHEREI', 'GETRAENKE', 'TRINKGUT', 'HOL AB', 'PICNIC', 'KNUSPR', 'TGTG', 'TOO GOOD TO GO', 'IPER', 'IPERAL', 'ALCAMPO', 'BASKO', 'ALBERT HEIJN', 'JUMBO', 'MERCADONA', 'CARREFOUR', 'CONAD', 'ESSELUNGA', 'MIX MARKT', 'MIXMARKT', 'LEBENSMITTEL'],
-    ['drogerie', '', 'DROGERIE', 'DM', 'ROSSMANN', 'BUDNI', 'APOTHEKE', 'DOCMORRIS', 'SHOP APOTHEKE', 'ARZT', 'ZAHNARZT', 'PRAXIS', 'OPTIK', 'FIELMANN', 'APOLLO', 'PHYSIOTHERAPIE', 'KRANKENKASSE', 'AOK', 'BARMER', 'MISTER SPEX', 'KIKO'],
+    ['drogerie', '', 'DROGERIE', 'DM', 'ROSSMANN', 'BUDNI', 'APOTHEKE', 'DOCMORRIS', 'SHOP APOTHEKE', 'ARZT', 'ZAHNARZT', 'PRAXIS', 'OPTIK', 'FIELMANN', 'APOLLO', 'PHYSIOTHERAPIE', 'KRANKENKASSE', 'AOK', 'BARMER', 'MISTER SPEX', 'KIKO', 'MUELLER DROGERIE', 'MUELLER MARKT', 'MUELLER LTD', 'MUELLER HANDELS'],
     ['essen', '', 'LIEFERANDO', 'UBER EATS', 'WOLT', 'MCDONALDS', 'MC DONALDS', 'BURGER KING', 'KFC', 'SUBWAY', 'STARBUCKS', 'VAPIANO', 'NORDSEE', 'PIZZA', 'PIZZERIA', 'RESTAURANT', 'IMBISS', 'DOENER', 'KEBAB', 'GRILL', 'CAFE', 'BISTRO', 'SUSHI', 'DOMINOS', 'CALL A PIZZA', 'BACKWERK', 'RISTORANTE', 'TRATTORIA', 'OSTERIA', 'KEBAP', 'DOENERS', 'BURGER', 'BURGUER', 'SMASHBURGER', 'GELATO', 'EISCAFE', 'EISDIELE', 'TACO', 'KITCHEN', 'GASTRONOMIE', 'GASTRO', 'COFFEE', 'CHURRITO'],
-    ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE', 'WASCHANLAGE', 'WASCHPARK', 'PRIMWASH', 'HAUPTZOLLAMT', 'HZA', 'PACE TELEMATICS', 'TOTAL SERVICE', 'AUTODOC', 'MR WASH', 'CARWASH', 'CAR WASH', 'PARKING', 'AUTOPARK', 'PACE PAY', 'IMOCARWASH', 'VANMOOF'],
+    ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'STAR TANK', 'STAR STATION', 'KFZ STEUER', 'KFZSTEUER', 'KRAFTFAHRZEUGSTEUER', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE', 'WASCHANLAGE', 'WASCHPARK', 'PRIMWASH', 'HAUPTZOLLAMT', 'HZA', 'PACE TELEMATICS', 'TOTAL SERVICE', 'AUTODOC', 'MR WASH', 'CARWASH', 'CAR WASH', 'PARKING', 'AUTOPARK', 'PACE PAY', 'IMOCARWASH', 'VANMOOF'],
     ['versicherung', '', 'VERSICHERUNG', 'VERSICHERUNGEN', 'RECHTSSCHUTZ', 'ADAM RIESE', 'BAVARIADIREKT', 'HUK', 'HUK24', 'HUK COBURG', 'ALLIANZ', 'ERGO', 'AXA', 'R+V', 'DEVK', 'GENERALI', 'COSMOSDIREKT', 'HANSEMERKUR', 'BARMENIA', 'GOTHAER', 'SIGNAL IDUNA', 'WGV', 'VHV', 'ZURICH', 'HDI', 'ARAG', 'PROVINZIAL', 'LVM', 'NUERNBERGER', 'DEBEKA', 'CONTINENTALE'],
     ['shopping', '', 'AMAZON', 'AMZN', 'ZALANDO', 'OTTO GMBH', 'OTTO.DE', 'EBAY', 'ABOUT YOU', 'H&M', 'H+M', 'PRIMARK', 'C&A', 'ZARA', 'DEICHMANN', 'MEDIAMARKT', 'MEDIA MARKT', 'SATURN', 'TEMU', 'SHEIN', 'ALIEXPRESS', 'IKEA', 'OBI', 'BAUHAUS', 'HORNBACH', 'TOOM', 'HAGEBAU', 'ACTION', 'TEDI', 'KIK', 'WOOLWORTH', 'DECATHLON', 'THALIA', 'CYBERPORT', 'NOTEBOOKSBILLIGER', 'ALTERNATE', 'JYSK', 'POCO', 'ROLLER', 'KLARNA', 'OTTO', 'OTTO PAYMENTS', 'TK MAXX', 'TKMAXX', 'FASHION ID', 'TCHIBO', 'HEMA', 'PULL & BEAR', 'PULL&BEAR', 'CARPISA', 'OVS', 'ORIGINAL MARINES', 'EL CORTE INGLES', 'STRENE GRENE', 'FLYING TIGER', 'SMYTHS', 'BABYPARK', 'KIABI', 'HOME24', 'BLUME 2000', 'BLUME2000', 'BLUMEN', 'GARTENCENTER', 'DEHNER', 'ETSY', 'NIKE', 'NIKEPOS', 'S OLIVER', 'S.OLIVER', 'EUROSHOP', 'MISTERSPEX'],
     ['freizeit', '', 'MCFIT', 'MY GYM', 'MYGYM', 'GYM', 'FITNESS', 'FITNESSSTUDIO', 'CLEVER FIT', 'FITX', 'URBAN SPORTS', 'JOHN REED', 'INJOY', 'KINO', 'CINEMAXX', 'UCI', 'CINESTAR', 'EVENTIM', 'TICKETMASTER', 'BOWLING', 'SCHWIMMBAD', 'FREIBAD', 'MUSEUM', 'ZOO', 'THEATER', 'ESN', 'ESN.COM'],
@@ -940,7 +962,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     budgets: {},     // category id -> cents per month
     owner: '',       // account holder name from the statements (stays on this device)
     bal: {},         // account name -> { d, a }: balance at the end of day d (cents)
-    opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} },
+    opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false },
     rules: [],       // { id, k: keyword (normalized), c: category id }
     cats: [],        // custom categories
     month: thisMonth(),
@@ -975,6 +997,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   const kindOf = (id) => (CAT[id] ? CAT[id].kind : 'out');
 
   const CASH = 'Bargeld';
+  // Household view: accounts of the partner count only in "Haushalt"; "Nur ich" leaves them out of all numbers
+  const isPartnerAcc = (acc) => S.opts.partnerAccs.indexOf(acc) >= 0;
+  const inScope = (t) => !!S.opts.household || !isPartnerAcc(t.acc);
   function categorize(tx) {
     const r = categorizeBase(tx);
     if (S.opts.cashManual && S.opts.cashSince && tx.acc && tx.acc !== CASH && tx.d > S.opts.cashSince && (r[0] === 'bargeld' || r[0] === 'bareinzahlung')) return ['cashmove', r[1]];
@@ -1091,7 +1116,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   function cleanData(raw) {
-    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' };
+    const out = { tx: [], budgets: {}, rules: [], cats: [], bal: {}, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false }, owner: '' };
     if (!raw || typeof raw !== 'object') return out;
     const ids = {};
     (Array.isArray(raw.cats) ? raw.cats : []).forEach((c, i) => {
@@ -1140,6 +1165,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       out.opts.cashManual = raw.opts.cashManual === true;
       out.opts.payday = raw.opts.payday === true;
       out.opts.cashSince = /^\d{4}-\d{2}-\d{2}$/.test(raw.opts.cashSince) ? raw.opts.cashSince : '';
+      out.opts.household = raw.opts.household === true;
+      if (Array.isArray(raw.opts.partnerAccs)) raw.opts.partnerAccs.slice(0, 10).forEach((n) => { const name = clip(n, 40); if (name && out.opts.partnerAccs.indexOf(name) < 0) out.opts.partnerAccs.push(name); });
       if (raw.opts.cardPaymentDays && typeof raw.opts.cardPaymentDays === 'object' && !Array.isArray(raw.opts.cardPaymentDays)) {
         Object.keys(raw.opts.cardPaymentDays).forEach((key) => {
           const name = clip(key, 40), day = Number(raw.opts.cardPaymentDays[key]);
@@ -1152,8 +1179,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
   function loadData(clean) {
     S.tx = clean.tx; S.budgets = clean.budgets; S.rules = clean.rules; S.cats = clean.cats;
-    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} };
+    S.bal = clean.bal || {}; S.opts = clean.opts || { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false };
     if (!S.opts.cardPaymentDays) S.opts.cardPaymentDays = {};
+    if (!S.opts.partnerAccs) S.opts.partnerAccs = [];
     if (S.opts.cashManual && !S.opts.cashSince) S.opts.cashSince = S.bal[CASH] ? S.bal[CASH].d : today(); S.owner = clean.owner || '';
     migrateAccounts();
     rebuildCats();
@@ -1191,7 +1219,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function salaryPayments() {
     const best = {};
     S.tx.forEach((t) => {
-      if (t.c !== 'gehalt' || t.a <= 0 || Number(t.d.slice(8, 10)) < 15) return;
+      if (t.c !== 'gehalt' || t.a <= 0 || Number(t.d.slice(8, 10)) < 15 || isPartnerAcc(t.acc)) return;
       const m = t.d.slice(0, 7);
       if (!best[m] || t.a > best[m].a) best[m] = t;
     });
@@ -1256,7 +1284,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const by = {};
     let inc = 0, out = 0, sav = 0, count = 0, open = 0;
     S.tx.forEach((t) => {
-      if (periodOf(t.d) !== m) return;
+      if (periodOf(t.d) !== m || !inScope(t)) return;
       count++;
       by[t.c] = (by[t.c] || 0) + t.a;
       const k = kindOf(t.c);
@@ -2029,6 +2057,12 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         } else {
           fill.style.background = ratio > 0.85 ? 'var(--warn-bar)' : r.c.color;
           sub.textContent = 'von ' + fmt0(r.budget) + ' · noch ' + fmt0(r.budget - r.spent);
+          // Spending faster than the month passes: say so before the budget is used up
+          if (S.month === currentPeriod() && r.c.kind === 'out') {
+            const range = periodRange(S.month), nowIso = today();
+            const total = daysBetween(range.from, range.to) + 1, gone = daysBetween(range.from, nowIso) + 1;
+            if (gone > 0 && gone < total && ratio - gone / total > 0.2) sub.textContent += ' · schneller als der Monat';
+          }
         }
       } else {
         fill.style.width = Math.max(0, r.spent / maxSpent * 100) + '%';
@@ -2079,7 +2113,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const saved = [];
     accounts().forEach((a) => {
       const b = balanceOf(a.name);
-      if (!b) return;
+      if (!b || (!S.opts.household && isPartnerAcc(a.name))) return;
       if (isSavingsAcc(a.name)) { saved.push(a.name.replace(/^C24 /, '') + ' ' + fmt(b.a)); return; }
       if (isCardAcc(a.name)) { owed += b.a; cards++; return; }
       sum += b.a; n++; byAccount[a.name] = b.a;
@@ -2135,10 +2169,36 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function linkedCardSettlement(t) {
     return !!linkedCardAccount(t);
   }
+  // The bank debit that pays a card is not spending again when the card side only has entries typed by hand:
+  // the purchases were counted when they were entered. Worked out again on every render, so it follows edits.
+  function markHandSettlements() {
+    const cards = accounts().filter((a) => isCardAcc(a.name));
+    const handOn = {};
+    const before = S.tx.map((t) => t.c).join();
+    S.tx.forEach((t) => {
+      if (t.hs) {
+        delete t.hs;
+        if (t.src !== 'm' && t.src !== 't') applyCategory(t);
+      }
+      if (t.src === 'm' && t.t === 'Von Hand' && isCardAcc(t.acc)) (handOn[t.acc] = handOn[t.acc] || []).push(t.d);
+    });
+    if (Object.keys(handOn).length) markSettlementDebits(cards, handOn);
+    if (S.tx.map((t) => t.c).join() !== before) save();
+  }
+  function markSettlementDebits(cards, handOn) {
+    S.tx.forEach((t) => {
+      if (t.a >= 0 || t.l || t.src === 'm' || t.src === 't' || !t.acc || t.acc === CASH || isCardAcc(t.acc) || isSavingsAcc(t.acc)) return;
+      const card = cardAccountForPayment(t, cards);
+      const dates = card && handOn[card];
+      if (!dates || !dates.some((d) => d <= t.d && daysBetween(d, t.d) <= 45)) return;
+      t.hs = true;
+      t.c = 'umbuchung';
+    });
+  }
   function isRecurringDebit(t) {
-    if (t.a >= 0 || !t.acc || t.acc === CASH || isCardAcc(t.acc) || isSavingsAcc(t.acc)) return false;
+    if (t.a >= 0 || !t.acc || t.acc === CASH || isCardAcc(t.acc) || isSavingsAcc(t.acc) || !inScope(t)) return false;
     if (t.c === 'bargeld' || t.c === 'cashmove' || t.c === 'sparen' || t.c === 'eigene') return false;
-    if (t.c === 'umbuchung') return linkedCardSettlement(t);
+    if (t.c === 'umbuchung') return linkedCardSettlement(t) || !!t.hs;
     const scheduled = /LASTSCHRIFT|DAUERAUFTRAG|SEPA/.test(normText([t.t, t.p].join(' ')));
     return kindOf(t.c) === 'out' && (!!RECURRING_CATS[t.c] || scheduled);
   }
@@ -2256,7 +2316,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     ul.textContent = '';
     let total = 0, known = 0;
     // Accounts with a balance, plus imported accounts still missing one; hand-entered-only accounts only once they have a balance
-    const accs = accounts().filter((a) => S.bal[a.name] || S.tx.some((t) => t.acc === a.name && t.src !== 'm') || (a.name === CASH && S.opts.cashManual));
+    const accs = accounts().filter((a) => (S.opts.household || !isPartnerAcc(a.name)) && (S.bal[a.name] || S.tx.some((t) => t.acc === a.name && t.src !== 'm') || (a.name === CASH && S.opts.cashManual)));
     if (S.opts.cashManual && !accs.some((a) => a.name === CASH)) accs.push({ name: CASH, n: 0 });
     accs.forEach((a) => {
       const b = balanceOf(a.name);
@@ -2265,7 +2325,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       btn.type = 'button';
       btn.appendChild(el('span', 'bn', a.name));
       btn.appendChild(el('span', 'ba num' + (b && b.a < 0 ? ' neg' : ''), b ? fmt(b.a) : '–'));
-      btn.appendChild(el('span', 'bs num' + (b ? '' : ' set'), b ? 'Stand ' + fDate.format(fromISO(b.d)) : 'Kontostand eintragen'));
+      const payDay = isCardAcc(a.name) && S.opts.cardPaymentDays[a.name];
+      let nextPay = '';
+      if (payDay) { nextPay = dateInMonth(thisMonth(), payDay); if (nextPay <= today()) nextPay = dateInMonth(shiftMonth(thisMonth(), 1), payDay); }
+      btn.appendChild(el('span', 'bs num' + (b ? '' : ' set'), b ? 'Stand ' + fDate.format(fromISO(b.d)) + (nextPay ? ' · wird am ' + fDate.format(fromISO(nextPay)) + ' abgebucht' : '') : 'Kontostand eintragen'));
       btn.setAttribute('aria-label', a.name + ': ' + (b ? fmt(b.a) + ', Stand ' + fDate.format(fromISO(b.d)) + '. Kontostand ändern.' : 'kein Kontostand. Kontostand eintragen.'));
       btn.addEventListener('click', () => openBal(a.name));
       li.appendChild(btn);
@@ -2309,8 +2372,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     cs.textContent = '';
     option(cs, '', 'Alle Kategorien');
     option(cs, '_open', 'Ohne passende Kategorie');
+    option(cs, '_hand', 'Von Hand eingetragen');
     CATS.forEach((c) => option(cs, c.id, c.name));
-    if (S.filterCat && S.filterCat !== '_open' && !CAT[S.filterCat]) S.filterCat = '';
+    if (S.filterCat && S.filterCat !== '_open' && S.filterCat !== '_hand' && !CAT[S.filterCat]) S.filterCat = '';
     cs.value = S.filterCat;
     const accs = accounts();
     const as = $('accFilter');
@@ -2333,9 +2397,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const searching = q.length > 0;
     $('txMonthbar').hidden = searching;
     let list = S.tx.filter((t) => {
+      if (!inScope(t)) return false;
       if (!searching && periodOf(t.d) !== S.month) return false;
       if (S.filterCat === '_open' && t.src !== 'f') return false;
-      if (S.filterCat && S.filterCat !== '_open' && t.c !== S.filterCat) return false;
+      if (S.filterCat === '_hand' && t.t !== 'Von Hand') return false;
+      if (S.filterCat && S.filterCat !== '_open' && S.filterCat !== '_hand' && t.c !== S.filterCat) return false;
       if (S.filterAcc && t.acc !== S.filterAcc) return false;
       if (searching && normText([t.n, t.p, t.t, t.acc, CAT[t.c] ? CAT[t.c].name : ''].join(' ')).indexOf(q) < 0) return false;
       return true;
@@ -2441,7 +2507,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function subscriptions() {
     const groups = {};
     S.tx.forEach((t) => {
-      if (t.c !== 'abos' || t.a >= 0) return;
+      if (t.c !== 'abos' || t.a >= 0 || !inScope(t)) return;
       const payee = recurringPayee(t);
       if (!payee) return;
       const g = groups[payee] || (groups[payee] = { name: '', days: {} });
@@ -2464,7 +2530,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       } else if (daysBetween(dates[0], now) <= 40) months = 1;
       else return;
       const last = dates[dates.length - 1];
-      const item = { name: g.name, months: months, last: last, amount: g.days[last], perMonth: Math.round(g.days[last] / months) };
+      const prev = dist.length >= 2 ? g.days[dist[dist.length - 2]] : 0;
+      const next = dateInMonth(shiftMonth(last.slice(0, 7), months), Number(last.slice(8, 10)));
+      const item = { name: g.name, months: months, last: last, next: next, prev: prev, amount: g.days[last], perMonth: Math.round(g.days[last] / months) };
       (daysBetween(last, now) <= months * 30.4 + 15 ? active : ended).push(item);
     });
     const byCost = (a, b) => b.perMonth - a.perMonth || a.name.localeCompare(b.name);
@@ -2478,13 +2546,14 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const month = subs.active.reduce((s, x) => s + x.perMonth, 0);
     $('subsMonth').textContent = fmt(month);
     $('subsYear').textContent = fmt(subs.active.reduce((s, x) => s + x.amount * 12 / x.months, 0));
-    const fill = (ul, items) => {
+    const fill = (ul, items, ended) => {
       ul.textContent = '';
       items.forEach((x) => {
         const li = el('li');
         const d = el('span', 'payday-detail');
         d.appendChild(el('span', 'payday-name', x.name));
-        d.appendChild(el('span', 'payday-meta', SUB_LABEL[x.months] + ' · zuletzt ' + fDate.format(fromISO(x.last))));
+        d.appendChild(el('span', 'payday-meta', SUB_LABEL[x.months] + ' · ' + (ended ? 'zuletzt ' + fDate.format(fromISO(x.last)) : 'nächste ca. ' + fDate.format(fromISO(x.next)))));
+        if (!ended && x.prev && x.amount > x.prev * 1.02) d.appendChild(el('span', 'payday-meta', 'Teurer geworden: vorher ' + fmt(x.prev)));
         li.appendChild(d);
         const a = el('span', 'payday-amount num');
         a.appendChild(document.createTextNode(fmt(x.amount)));
@@ -2495,7 +2564,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     };
     fill($('subsList'), subs.active);
     $('subsList').hidden = !subs.active.length;
-    fill($('subsEnded'), subs.ended);
+    fill($('subsEnded'), subs.ended, true);
     $('subsEnded').hidden = $('subsEndedHead').hidden = !subs.ended.length;
     $('subsNote').textContent = 'Aus allen Umsätzen der Kategorie "Abos & Streaming". Bei mehreren Zahlungen zählt der letzte Betrag.';
   }
@@ -2697,10 +2766,13 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   }
 
   function render() {
+    markHandSettlements();
     buildPeriods();
     renderTabs();
     renderMonthbars();
+    renderScope();
     renderOverview();
+    renderBackupHint();
     renderTx();
     renderBudgets();
     renderSubs();
@@ -2753,6 +2825,14 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const purpose = [t.t, t.p].filter(Boolean).join(' · ');
     $('shPurpose').textContent = purpose;
     $('shPurpose').hidden = !purpose;
+    const hand = t.t === 'Von Hand' && t.src === 'm';
+    $('shEdit').hidden = !hand;
+    if (hand) {
+      $('shEditAmt').value = String(Math.abs(t.a) / 100).replace('.', ',');
+      $('shEditDate').value = t.d;
+      $('shEditAcc').value = t.acc;
+      $('shEditErr').hidden = true;
+    }
     const other = partnerOf(t);
     $('shLink').hidden = !other;
     if (other) $('shLink').textContent = 'Umbuchung zwischen deinen Konten, zählt nicht als Ausgabe oder Einnahme. Gegenbuchung: ' + other.acc + ', ' + fDayShort.format(fromISO(other.d)) + ', ' + fmtS(other.a) + '. Wählst du eine andere Kategorie, wird die Verknüpfung gelöst.';
@@ -2814,6 +2894,24 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       }
     }
     render();
+  }
+  function saveHandEdit() {
+    const t = sheetTx, err = $('shEditErr');
+    if (!t) return;
+    const v = parseUserAmount($('shEditAmt').value), d = $('shEditDate').value, acc = clip($('shEditAcc').value, 40);
+    if (!isFinite(v) || v <= 0) { err.textContent = 'Bitte einen Betrag eingeben, z. B. 12,50.'; err.hidden = false; return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { err.textContent = 'Bitte ein Datum wählen.'; err.hidden = false; return; }
+    if (!acc) { err.textContent = 'Bitte ein Konto angeben.'; err.hidden = false; return; }
+    const old = { a: t.a, d: t.d, acc: t.acc };
+    t.a = t.a < 0 ? -v : v; t.d = d; t.acc = acc;
+    const newBal = isCardAcc(acc) && !S.bal[acc];
+    if (newBal) { const y = fromISO(d); y.setDate(y.getDate() - 1); S.bal[acc] = { d: isoDay(y), a: 0 }; }
+    if (!save()) { Object.assign(t, old); if (newBal) delete S.bal[acc]; return; }
+    buildPeriods();
+    S.month = periodOf(d);
+    fillTxSheet();
+    render();
+    toast('Änderung gespeichert', 'Rückgängig', () => { Object.assign(t, old); save(); buildPeriods(); render(); });
   }
   function deleteSheetTx() {
     const t = sheetTx;
@@ -3004,6 +3102,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     // Cash is usually counted now, which is the state at the end of yesterday
     $('balDate').value = cur ? cur.d : acc === CASH ? isoDay(y) : today();
     $('balPayDay').value = S.opts.cardPaymentDays[acc] || '';
+    $('balPartner').checked = isPartnerAcc(acc);
+    $('balPartnerWrap').hidden = acc === CASH;
     $('balPayDayWrap').hidden = !isCardAcc(acc);
     $('balPayDayHelp').hidden = !isCardAcc(acc);
     $('balSheetTitle').textContent = acc === CASH ? 'Wie viel Bargeld hast du?' : 'Kontostand: ' + acc;
@@ -3032,6 +3132,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (isCardAcc(balAcc) && payDayText && (!/^\d{1,2}$/.test(payDayText) || Number(payDayText) < 1 || Number(payDayText) > 31)) { err.textContent = 'Bitte einen Abbuchungstag von 1 bis 31 eingeben.'; err.hidden = false; return; }
     const before = S.bal[balAcc];
     const beforePayDay = S.opts.cardPaymentDays[balAcc];
+    const beforePartner = S.opts.partnerAccs.slice(), beforeHousehold = S.opts.household;
+    S.opts.partnerAccs = S.opts.partnerAccs.filter((n) => n !== balAcc);
+    if ($('balPartner').checked && balAcc !== CASH) S.opts.partnerAccs.push(balAcc);
+    if (!S.opts.partnerAccs.length) S.opts.household = false;
     S.bal[balAcc] = { d: d, a: neg ? -v : v };
     if (isCardAcc(balAcc)) {
       if (payDayText) S.opts.cardPaymentDays[balAcc] = Number(payDayText);
@@ -3041,6 +3145,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (!save()) {
       if (before) S.bal[balAcc] = before; else delete S.bal[balAcc];
       if (beforePayDay == null) delete S.opts.cardPaymentDays[balAcc]; else S.opts.cardPaymentDays[balAcc] = beforePayDay;
+      S.opts.partnerAccs = beforePartner; S.opts.household = beforeHousehold;
       return;
     }
     hideDialog($('balSheet'));
@@ -3110,10 +3215,28 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 
   /* ---------- Backup ---------- */
   function backupMsg(text) { const e = $('backupMsg'); e.textContent = text; e.hidden = false; }
+  // Date of the last backup, kept only on this device (not inside the data itself)
+  const BACKUP_KEY = 'budget.lastBackup';
+  function lastBackup() { try { return localStorage.getItem(BACKUP_KEY) || ''; } catch (e) { return ''; } }
+  function noteBackup() { try { localStorage.setItem(BACKUP_KEY, today()); } catch (e) {} }
+  function renderScope() {
+    if (!S.opts.partnerAccs.length) S.opts.household = false;
+    $('scopeSeg').hidden = !S.opts.partnerAccs.length;
+    $$('#scopeSeg button').forEach((b) => b.setAttribute('aria-checked', String((b.getAttribute('data-scope') === 'home') === !!S.opts.household)));
+  }
+  function renderBackupHint() {
+    const last = lastBackup();
+    const days = last ? daysBetween(last, today()) : Infinity;
+    const show = S.tx.length > 0 && days > 30;
+    $('backupHint').hidden = !show;
+    if (show) $('backupHintText').textContent = last ? 'Letztes Backup vor ' + days + ' Tagen. Jetzt sichern' : 'Noch kein Backup gemacht. Jetzt sichern';
+  }
   function exportBackup() {
     if (!S.tx.length && !S.rules.length && !Object.keys(S.budgets).length) { backupMsg('Noch keine Daten zum Sichern.'); return; }
     const json = JSON.stringify({ app: 'budget', version: 1, exportedAt: new Date().toISOString(), data: { tx: S.tx, budgets: S.budgets, rules: S.rules, cats: S.cats, bal: S.bal, opts: S.opts, owner: S.owner } });
     const name = 'budget-backup-' + today() + '.json';
+    noteBackup();
+    renderBackupHint();
     let file = null;
     try { file = new File([json], name, { type: 'application/json' }); } catch (e) { file = null; }
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -3171,6 +3294,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     else if (files.length === 1) readCSVFile(files[0]);
     else { importMsg('Bitte wähle entweder eine CSV-Datei oder einen oder mehrere PDF-Kontoauszüge.'); e.target.value = ''; }
   });
+  $$('#scopeSeg button').forEach((b) => b.addEventListener('click', () => { S.opts.household = b.getAttribute('data-scope') === 'home'; save(); render(); }));
+  $('backupHint').addEventListener('click', () => setTab('data'));
   $('openHint').addEventListener('click', () => { S.filterCat = '_open'; S.query = ''; setTab('tx'); });
   $('catFilter').addEventListener('change', (e) => { S.filterCat = e.target.value; renderTx(); });
   $('accFilter').addEventListener('change', (e) => { S.filterAcc = e.target.value; renderTx(); });
@@ -3203,6 +3328,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   // Sheets
   $('shDone').addEventListener('click', closeTxSheet);
   $('shDelete').addEventListener('click', deleteSheetTx);
+  $('shEditSave').addEventListener('click', saveHandEdit);
   $('shRule').addEventListener('change', (e) => { $('shRuleKw').disabled = !e.target.checked; });
   $('txSheet').addEventListener('cancel', (e) => { e.preventDefault(); closeTxSheet(); });
   $('txSheet').addEventListener('click', (e) => { if (e.target === $('txSheet')) closeTxSheet(); });

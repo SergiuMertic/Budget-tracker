@@ -35,6 +35,10 @@ def fx(name):
     return os.path.join(FIX, name)
 
 
+import datetime
+TODAY = datetime.date.today().isoformat()
+
+
 def main():
     port = free_port()
     srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1'], cwd=ROOT,
@@ -157,7 +161,7 @@ def main():
             os.remove(path)
 
             # "Bis zum Gehalt": recurring rent and an unlinked Amex debit use synthetic data only
-            page.evaluate("""() => {
+            due_day = page.evaluate("""() => {
                 const now = new Date();
                 const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
                 const monthAt = (delta) => {
@@ -166,7 +170,8 @@ def main():
                 };
                 const currentLabel = monthAt(now.getDate() >= 28 ? 1 : 0);
                 const dueDay = now.getDate() < 27 ? now.getDate() + 1 : now.getDate() === 27 ? 27 : 5;
-                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: today, a: 60000 }, 'American Express': { d: today, a: -12345 } }, opts: { cashManual: false, payday: true, cashSince: '', cardPaymentDays: { 'American Express': 10 } }, owner: '' };
+                const cardDay = dueDay + 1;
+                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: today, a: 60000 }, 'American Express': { d: today, a: -12345 } }, opts: { cashManual: false, payday: true, cashSince: '', cardPaymentDays: { 'American Express': cardDay } }, owner: '' };
                 let serial = 0;
                 const add = (tx) => data.tx.push(Object.assign({ id: 'forecast-' + (++serial), src: 'r' }, tx));
                 for (let offset = 1; offset <= 4; offset++) {
@@ -181,7 +186,9 @@ def main():
                     add({ d: billDate, a: -25000, n: 'American Express Europe S.A. (Germany branch)', p: 'Card settlement', t: 'LASTSCHRIFT', acc: 'Example Checking', c: 'kredit' });
                 }
                 localStorage.setItem('budget.data.v1', JSON.stringify(data));
+                return cardDay;
             }""")
+            day_re = r'\b%02d\.\d{2}\.\d{4}\b' % due_day
             page.reload()
             page.wait_for_timeout(300)
             forecast = page.evaluate("""() => ({
@@ -191,8 +198,8 @@ def main():
                 warning: paydayWarning.textContent,
                 rows: Array.from(paydayList.querySelectorAll('li')).map((li) => li.innerText)
             })""")
-            check('unlinked Amex debit uses the current card balance and configured day', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row and re.search(r'\b10\.\d{2}\.\d{4}\b', row) for row in forecast['rows']), forecast)
-            check('automatic debit warns about a shortfall by the configured day', abs(num(forecast['free']) + 23.45) < 0.005 and 'automatische Abbuchung' in forecast['warning'] and 'bis zum' in forecast['warning'] and re.search(r'\b10\.\d{2}\.\d{4}\b', forecast['warning']) and 'Rücklastschrift' in forecast['warning'], forecast)
+            check('unlinked Amex debit uses the current card balance and configured day', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row and re.search(day_re, row) for row in forecast['rows']), forecast)
+            check('automatic debit warns about a shortfall by the configured day', abs(num(forecast['free']) + 23.45) < 0.005 and 'automatische Abbuchung' in forecast['warning'] and 'bis zum' in forecast['warning'] and re.search(day_re, forecast['warning']) and 'Rücklastschrift' in forecast['warning'], forecast)
 
             # Entry by hand on a card: picker, owed amount, payment day, replaced by a later import
             base = """(extra) => {
@@ -256,6 +263,20 @@ def main():
             amex = [t for t in data['tx'] if t['acc'] == 'American Express' and t['a'] == -2340]
             check('import replaces the same purchase typed by hand', len(amex) == 1 and amex[0]['t'] != 'Von Hand' and amex[0]['c'] == 'sonstiges' and amex[0]['src'] == 'm', amex)
 
+            # The bank debit that pays a card is not counted again when the card only has hand entries
+            debit = {'id': 'd1', 'd': '2026-11-07', 'a': -30000, 'n': 'American Express Europe S.A.', 'p': 'Settlement', 't': 'LASTSCHRIFT', 'acc': 'Example Checking', 'c': 'kredit', 'src': 'r', 'k': 'dd1'}
+            handx = {'id': 'h7', 'd': '2026-11-03', 'a': -1000, 'n': 'Shop', 'p': '', 't': 'Von Hand', 'acc': 'American Express', 'c': 'sonstiges', 'src': 'm', 'k': 'm|h7'}
+            page.evaluate(base, {'tx': [debit, handx], 'bal': {'Example Checking': {'d': '2026-01-01', 'a': 100000}, 'American Express': {'d': '2026-01-01', 'a': 0}}})
+            page.reload()
+            page.wait_for_timeout(300)
+            cat = page.evaluate("JSON.parse(localStorage.getItem('budget.data.v1')).tx.filter((t) => t.id === 'd1')[0].c")
+            check('card settlement not counted when the card has hand entries', cat == 'umbuchung', cat)
+            page.evaluate(base, {'tx': [debit], 'bal': {'Example Checking': {'d': '2026-01-01', 'a': 100000}}})
+            page.reload()
+            page.wait_for_timeout(300)
+            cat = page.evaluate("JSON.parse(localStorage.getItem('budget.data.v1')).tx.filter((t) => t.id === 'd1')[0].c")
+            check('card settlement counted again without hand entries', cat == 'kredit', cat)
+
             # Subscription overview (synthetic data)
             page.evaluate("""() => {
                 const now = new Date();
@@ -264,7 +285,7 @@ def main():
                 let n = 0;
                 const add = (d, a, name) => data.tx.push({ id: 'sub-' + (++n), src: 'r', d: d, a: a, n: name, p: 'Abo', acc: 'Example Checking', c: 'abos' });
                 for (let m = -3; m <= 0; m++) add(at(m, 1), -1299, 'NETFLIX');
-                for (let m = -3; m <= 0; m++) add(at(m, 3), -499, 'SPOTIFY');
+                for (let m = -3; m <= 0; m++) add(at(m, 3), m === 0 ? -599 : -499, 'SPOTIFY');
                 add(at(-14, 10), -12000, 'ADOBE');
                 add(at(-2, 10), -12000, 'ADOBE');
                 for (let m = -9; m <= -6; m++) add(at(m, 5), -999, 'DAZN');
@@ -278,8 +299,50 @@ def main():
                 rows: Array.from(subsList.querySelectorAll('li')).map((li) => li.innerText),
                 ended: Array.from(subsEnded.querySelectorAll('li')).map((li) => li.innerText) })""")
             check('subscriptions: 3 active, sorted by monthly cost', len(subs['rows']) == 3 and 'NETFLIX' in subs['rows'][0] and 'ADOBE' in subs['rows'][1] and 'SPOTIFY' in subs['rows'][2], subs)
-            check('subscriptions: monthly and yearly totals', abs(num(subs['month']) - (10 + 12.99 + 4.99)) < 0.005 and abs(num(subs['year']) - (120 + 12 * (12.99 + 4.99))) < 0.005, subs)
+            check('subscriptions: monthly and yearly totals', abs(num(subs['month']) - (10 + 12.99 + 5.99)) < 0.005 and abs(num(subs['year']) - (120 + 12 * (12.99 + 5.99))) < 0.005, subs)
             check('subscriptions: ended one is listed apart', len(subs['ended']) == 1 and 'DAZN' in subs['ended'][0], subs)
+
+            check('subscriptions: next charge and price rise shown', 'nächste ca.' in subs['rows'][0] and 'Teurer geworden' in subs['rows'][2], subs)
+
+            # Household view: the partner's account counts only in "Haushalt"
+            page.evaluate(base, {'tx': [
+                {'id': 'p1', 'd': TODAY, 'a': -1000, 'n': 'REWE', 'p': '', 't': '', 'acc': 'Example Checking', 'c': 'lebensmittel', 'src': 'r', 'k': 'p1'},
+                {'id': 'p2', 'd': TODAY, 'a': -2000, 'n': 'REWE', 'p': '', 't': '', 'acc': 'Partner Konto', 'c': 'lebensmittel', 'src': 'r', 'k': 'p2'}],
+                'bal': {'Example Checking': {'d': '2026-01-01', 'a': 100000}, 'Partner Konto': {'d': '2026-01-01', 'a': 50000}},
+                'opts': {'cashManual': False, 'payday': False, 'cashSince': '', 'cardPaymentDays': {}, 'partnerAccs': ['Partner Konto'], 'household': False}})
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-overview')
+            check('household switch appears with a partner account', page.is_visible('#scopeSeg'))
+            only_me = num(page.text_content('#sumOut'))
+            page.click('#scopeSeg button[data-scope="home"]')
+            page.wait_for_timeout(200)
+            home = num(page.text_content('#sumOut'))
+            check('Nur ich leaves the partner out, Haushalt adds it', abs(only_me - 10) < 0.005 and abs(home - 30) < 0.005, (only_me, home))
+            page.click('#scopeSeg button[data-scope="me"]')
+
+            # Entry by hand can be changed afterwards
+            page.evaluate(base, {'tx': [{'id': 'e1', 'd': TODAY, 'a': -1000, 'n': 'Shop', 'p': '', 't': 'Von Hand', 'acc': 'Klarna', 'c': 'sonstiges', 'src': 'm', 'k': 'm|e1'}],
+                                  'bal': {'Example Checking': {'d': '2026-01-01', 'a': 100000}, 'Klarna': {'d': '2026-01-01', 'a': 0}}})
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-tx')
+            page.click('#txList .tx')
+            page.wait_for_selector('#txSheet[open]')
+            check('edit form shown for a hand entry', page.is_visible('#shEdit'))
+            page.fill('#shEditAmt', '12,50')
+            page.click('#shEditSave')
+            page.wait_for_timeout(300)
+            amt = page.evaluate("JSON.parse(localStorage.getItem('budget.data.v1')).tx[0].a")
+            check('hand entry amount changed', amt == -1250, amt)
+            page.click('#shDone')
+
+            # Backup reminder
+            page.evaluate("localStorage.removeItem('budget.lastBackup')")
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-overview')
+            check('backup reminder shown when no backup was made', page.is_visible('#backupHint'))
 
             # Version shown and service worker registered
             note = page.text_content('#note')
