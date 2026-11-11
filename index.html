@@ -756,6 +756,8 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       <label class="lbl">Datum <input type="date" class="field" id="addDate"></label>
       <label class="lbl">Konto <input type="text" class="field" id="addAcc" maxlength="40" list="accList" autocomplete="off"></label>
     </div>
+    <div class="chip-group"><span>Karte oder Konto antippen</span><div class="chips" id="addAccChips"></div></div>
+    <p class="card-text" id="addCardHint" hidden></p>
     <label class="lbl">Kategorie <span class="selectw"><select class="field" id="addCat"></select><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></label>
     <p class="card-text" id="addCashHint" hidden>Mit einem Bargeld-Konto siehst du, wie viel Bargeld du noch hast, und Abhebungen zählen nicht doppelt. <button type="button" class="linkbtn" id="addCashOn">Bargeld-Konto einschalten</button></p>
     <p class="card-msg danger" id="addErr" hidden></p>
@@ -795,7 +797,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '14';
+  const APP_VERSION = '15';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -1610,18 +1612,29 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const have = {};
     S.tx.forEach((t) => { have[t.k] = (have[t.k] || 0) + 1; });
     const seen = {};
-    let fresh = 0, dup = 0;
+    const hand = S.tx.filter((t) => t.src === 'm' && t.t === 'Von Hand');
+    const taken = {};
+    let fresh = 0, dup = 0, replaced = 0;
     imp.items.forEach((it) => {
-      const k = dupKey(clip(it.acc || imp.acc, 40) || 'Konto', it);
+      const acc = clip(it.acc || imp.acc, 40) || 'Konto';
+      const k = dupKey(acc, it);
       it.k = k;
       seen[k] = (seen[k] || 0) + 1;
       it.dup = seen[k] <= (have[k] || 0);
-      if (it.dup) dup++; else fresh++;
+      it.replaces = null;
+      if (it.dup) dup++;
+      else {
+        fresh++;
+        // A purchase typed in by hand is replaced by the same purchase from the file (same card and amount, 3 days apart at most)
+        const m = hand.filter((t) => !taken[t.id] && t.acc.toLowerCase() === acc.toLowerCase() && t.a === it.a && Math.abs(daysBetween(t.d, it.d)) <= 3)[0];
+        if (m) { taken[m.id] = true; it.replaces = m; replaced++; }
+      }
       const cat = categorize(it);
       it.c = cat[0]; it.src = cat[1];
     });
     imp.fresh = fresh;
     imp.dup = dup;
+    imp.replaced = replaced;
   }
   // Balances an import brings: verified statement end balances, or a CSV balance column
   function importBalances(imp) {
@@ -1641,16 +1654,19 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const balBefore = JSON.parse(JSON.stringify(S.bal));
     const balUpd = importBalances(imp);
     balUpd.forEach((b) => { S.bal[b.acc] = { d: b.d, a: b.a }; });
-    const added = [];
+    const added = [], gone = [];
     imp.items.forEach((it) => {
       if (it.dup) return;
       const tx = { id: newId(), d: it.d, a: it.a, n: it.n, p: it.p, t: it.t, acc: clip(it.acc || imp.acc, 40) || 'Konto', c: it.c, src: it.src, k: it.k };
+      // Keep the category chosen by hand for a replaced entry
+      if (it.replaces) { tx.c = it.replaces.c; tx.src = 'm'; gone.push(it.replaces); }
       S.tx.push(tx);
       added.push(tx);
     });
+    if (gone.length) S.tx = S.tx.filter((t) => gone.indexOf(t) < 0);
     if (added.length) { rebuildRules(); recategorizeAll(); relabelLinks(); }
     const linked = added.length ? linkTransfers() : 0;
-    if (!save()) { S.tx = S.tx.filter((t) => added.indexOf(t) < 0); S.bal = balBefore; cleanLinks(); return; }
+    if (!save()) { S.tx = S.tx.filter((t) => added.indexOf(t) < 0).concat(gone); S.bal = balBefore; cleanLinks(); return; }
     const last = added.reduce((m, t) => (t.d > m ? t.d : m), '');
     S.imp = null;
     $('csvInput').value = '';
@@ -1666,10 +1682,11 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       const parts = [txWord(added.length) + ' importiert'];
       if (linked) parts.push(plural(linked, 'Umbuchung', 'Umbuchungen') + ' zwischen deinen Konten erkannt');
       if (open) parts.push(open + ' ohne Kategorie');
+      if (gone.length) parts.push(gone.length + ' von Hand eingetragen ersetzt');
       toast(parts.join(', '), 'Rückgängig', () => {
         const ids = {};
         added.forEach((t) => { ids[t.id] = true; });
-        S.tx = S.tx.filter((t) => !ids[t.id]);
+        S.tx = S.tx.filter((t) => !ids[t.id]).concat(gone);
         S.bal = balBefore;
         cleanLinks();
         save();
@@ -1872,9 +1889,16 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   function balanceOf(acc) {
     const b = S.bal[acc];
     if (!b) return null;
-    let a = b.a, last = b.d;
+    let a = b.a, last = b.d, from = b.d;
+    // A card that is paid in full on a fixed day starts again at 0 after that day
+    const payDay = isCardAcc(acc) && S.opts.cardPaymentDays[acc];
+    if (payDay) {
+      let paid = dateInMonth(thisMonth(), payDay);
+      if (paid > today()) paid = dateInMonth(shiftMonth(thisMonth(), -1), payDay);
+      if (paid > b.d) { a = 0; last = from = paid; }
+    }
     S.tx.forEach((t) => {
-      if (t.d <= b.d) return;
+      if (t.d <= from) return;
       if (t.acc === acc) { a += t.a; if (t.d > last) last = t.d; }
       // Cash account: a withdrawal at the bank adds cash, a deposit at the bank takes it out
       else if (acc === CASH && t.c === 'cashmove') { a -= t.a; if (t.d > last) last = t.d; }
@@ -2819,8 +2843,9 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('addName').value = '';
     const t = today();
     $('addDate').value = periodOf(t) === S.month ? t : periodStart(S.month);
-    $('addAcc').value = 'Bargeld';
+    $('addAcc').value = lastHandAccount();
     $('addErr').hidden = true;
+    renderAddAcc();
     fillAddCats();
     renderAddKind();
     renderCashHint();
@@ -2842,6 +2867,38 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const fallback = addKind === 'in' ? 'einnahmen' : 'sonstiges';
     const c = name ? categorize({ n: name, p: '', t: '', a: addKind === 'in' ? 1 : -1 })[0] : fallback;
     sel.value = Array.prototype.some.call(sel.options, (o) => o.value === c) ? c : fallback;
+  }
+  // Account of the most recent entry made by hand, so the next one starts with the same card
+  function lastHandAccount() {
+    let last = null;
+    S.tx.forEach((t) => { if (t.src === 'm' && t.t === 'Von Hand' && t.acc && (!last || t.d >= last.d)) last = t; });
+    return last ? last.acc : CASH;
+  }
+  const STANDARD_CARDS = ['American Express', 'Klarna', 'Mastercard Gold'];
+  function renderAddAcc() {
+    const names = [];
+    accounts().forEach((a) => { if (!isSavingsAcc(a.name) && names.indexOf(a.name) < 0) names.push(a.name); });
+    STANDARD_CARDS.forEach((n) => { if (!names.some((x) => x.toLowerCase() === n.toLowerCase())) names.push(n); });
+    if (names.indexOf(CASH) < 0) names.push(CASH);
+    const cur = $('addAcc').value.trim().toLowerCase();
+    const box = $('addAccChips');
+    box.textContent = '';
+    names.forEach((n) => {
+      const b = el('button', 'chip', n);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(n.toLowerCase() === cur));
+      b.addEventListener('click', () => { $('addAcc').value = n; renderAddAcc(); renderCashHint(); });
+      box.appendChild(b);
+    });
+    const acc = $('addAcc').value.trim();
+    const hint = $('addCardHint');
+    hint.hidden = !isCardAcc(acc);
+    if (!hint.hidden) {
+      const day = S.opts.cardPaymentDays[acc];
+      hint.textContent = day
+        ? 'Der Betrag zählt zu „Kreditkarten offen“ und wird am ' + day + '. des Monats mit dem Konto verrechnet.'
+        : 'Der Betrag zählt zu „Kreditkarten offen“. Trage unter Kontostand den Abbuchungstag der Karte ein (z. B. 7), dann fängt der offene Betrag danach wieder bei 0 an.';
+    }
   }
   function renderCashHint() {
     $('addCashHint').hidden = S.opts.cashManual || addKind !== 'out' || !/^\s*(bargeld|bar|cash|portemonnaie|geldbeutel)\s*$/i.test($('addAcc').value);
@@ -2924,13 +2981,16 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     const id = newId();
     const tx = { id: id, d: d, a: addKind === 'in' ? v : -v, n: clip($('addName').value, 80) || (addKind === 'in' ? 'Einnahme' : 'Ausgabe'), p: '', t: 'Von Hand', acc: clip($('addAcc').value, 40) || 'Bargeld', c: $('addCat').value, src: 'm', k: 'm|' + id };
     if (!CAT[tx.c]) applyCategory(tx);
+    // A card without a saved balance starts at 0 owed the day before this entry, so the entry counts as owed
+    const newBal = isCardAcc(tx.acc) && !S.bal[tx.acc];
+    if (newBal) { const y = fromISO(d); y.setDate(y.getDate() - 1); S.bal[tx.acc] = { d: isoDay(y), a: 0 }; }
     S.tx.push(tx);
-    if (!save()) { S.tx.pop(); return; }
+    if (!save()) { S.tx.pop(); if (newBal) delete S.bal[tx.acc]; return; }
     hideDialog($('addSheet'));
     buildPeriods();
     S.month = periodOf(d);
     render();
-    toast(fmtS(tx.a) + ' gespeichert', 'Rückgängig', () => { S.tx = S.tx.filter((x) => x.id !== id); save(); render(); });
+    toast(fmtS(tx.a) + ' gespeichert', 'Rückgängig', () => { S.tx = S.tx.filter((x) => x.id !== id); if (newBal) delete S.bal[tx.acc]; save(); render(); });
   }
 
   let balAcc = '';
@@ -3149,7 +3209,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
   $$('#addSheet .seg button').forEach((b) => b.addEventListener('click', () => { addKind = b.getAttribute('data-kind'); addCatTouched = false; renderAddKind(); fillAddCats(); suggestAddCat(); renderCashHint(); }));
   $('addSave').addEventListener('click', saveAdd);
   $('addCancel').addEventListener('click', () => hideDialog($('addSheet')));
-  $('addAcc').addEventListener('input', renderCashHint);
+  $('addAcc').addEventListener('input', () => { renderAddAcc(); renderCashHint(); });
   $('addName').addEventListener('input', suggestAddCat);
   $('addCat').addEventListener('change', () => { addCatTouched = true; });
   $('addCashOn').addEventListener('click', () => { setCashManual(true, false); renderCashHint(); fillAddCats(); });

@@ -116,6 +116,9 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 - **"Bis zum Gehalt" (v13)**: the overview estimates the next payday and recurring debits, uses the current tracked card balance for linked settlements and unlinked card debits with a matching issuer, supports a device-only monthly automatic payment day per card, shows the remaining free amount, and warns when a forecast debit may overdraw its account.
 
+- **Subscription overview (v14)**: "Abos" card on the Budgets tab. Groups `abos` payments by payee, detects monthly, quarterly, half-yearly and yearly charges, shows cost per month and year, and lists ended ones apart.
+- **Hand entries on cards (v15)**: the add form has a tap-to-pick list of accounts and cards and remembers the last one. A card without a balance starts at 0 owed. A card with a payment day (`opts.cardPaymentDays`) counts as paid in full on that day, so `balanceOf` restarts at 0 after it. A later CSV import replaces a hand entry with the same card and amount (3 days apart at most) and keeps its category. Known gap: the bank debit that settles a card is still counted as spending when the card side only has hand entries.
+
 ## Open tasks (in the owner's order of priority)
 
 1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.

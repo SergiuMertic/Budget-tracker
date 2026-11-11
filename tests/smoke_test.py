@@ -194,6 +194,68 @@ def main():
             check('unlinked Amex debit uses the current card balance and configured day', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row and re.search(r'\b10\.\d{2}\.\d{4}\b', row) for row in forecast['rows']), forecast)
             check('automatic debit warns about a shortfall by the configured day', abs(num(forecast['free']) + 23.45) < 0.005 and 'automatische Abbuchung' in forecast['warning'] and 'bis zum' in forecast['warning'] and re.search(r'\b10\.\d{2}\.\d{4}\b', forecast['warning']) and 'Rücklastschrift' in forecast['warning'], forecast)
 
+            # Entry by hand on a card: picker, owed amount, payment day, replaced by a later import
+            base = """(extra) => {
+                const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: '2026-01-01', a: 100000 } }, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' };
+                Object.assign(data, extra || {});
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+            }"""
+            page.evaluate(base, {'tx': [{'id': 'x1', 'd': '2026-01-02', 'a': -100, 'n': 'Seed', 'p': '', 't': '', 'acc': 'Example Checking', 'c': 'sonstiges', 'src': 'r', 'k': 'seed'}]})
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-overview')
+            page.click('#balCard [data-action="add-tx"]')
+            page.wait_for_selector('#addSheet[open]')
+            page.click('#addAccChips .chip:has-text("Klarna")')
+            check('card hint shown for Klarna', page.is_visible('#addCardHint'))
+            page.fill('#addAmt', '25')
+            page.fill('#addName', 'Test Shop')
+            page.click('#addSave')
+            page.wait_for_timeout(300)
+            data = page.evaluate("JSON.parse(localStorage.getItem('budget.data.v1'))")
+            kl = [t for t in data['tx'] if t['acc'] == 'Klarna']
+            check('hand entry saved on the chosen card', len(kl) == 1 and kl[0]['a'] == -2500 and kl[0]['t'] == 'Von Hand', kl)
+            check('card starts at 0 owed before the entry', data['bal'].get('Klarna', {}).get('a') == 0, data['bal'])
+            meta = page.text_content('#availMeta')
+            check('hand entry raises Kreditkarten offen', 'Kreditkarten offen: 25,00' in meta, meta)
+            page.click('#balCard [data-action="add-tx"]')
+            page.wait_for_selector('#addSheet[open]')
+            check('last used card is preselected', page.input_value('#addAcc') == 'Klarna')
+            page.click('#addCancel')
+            page.wait_for_timeout(200)
+
+            # Card paid in full on a fixed day: back to 0 after that day
+            expect = page.evaluate("""() => {
+                const pad = (n) => String(n).padStart(2, '0');
+                const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+                const now = new Date();
+                let paid = new Date(now.getFullYear(), now.getMonth(), 7);
+                if (paid > now) paid = new Date(now.getFullYear(), now.getMonth() - 1, 7);
+                const before = new Date(paid); before.setDate(before.getDate() - 3);
+                const old = new Date(paid); old.setDate(old.getDate() - 30);
+                const mk = (id, d, a) => ({ id: id, d: iso(d), a: a, n: 'Shop', p: '', t: 'Von Hand', acc: 'American Express', c: 'sonstiges', src: 'm', k: 'm|' + id });
+                const tx = [mk('h1', before, -1000)];
+                if (now > paid) tx.push(mk('h2', now, -300));
+                const data = { v: 1, tx: tx, budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: iso(old), a: 100000 }, 'American Express': { d: iso(old), a: -5000 } }, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: { 'American Express': 7 } }, owner: '' };
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+                return now > paid ? 300 : 0;
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            meta = page.text_content('#availMeta')
+            owed = num(meta.split('Kreditkarten offen: ')[1].split(' ·')[0]) if 'Kreditkarten offen: ' in meta else None
+            check('card owes only what was bought after its payment day', owed is not None and abs(owed - expect / 100) < 0.005, (meta, expect))
+
+            # A later import replaces the entry typed by hand and keeps its category
+            page.evaluate(base, {'tx': [{'id': 'h9', 'd': '2026-10-15', 'a': -2340, 'n': 'Lidl', 'p': '', 't': 'Von Hand', 'acc': 'American Express', 'c': 'sonstiges', 'src': 'm', 'k': 'm|h9'}]})
+            page.reload()
+            page.wait_for_timeout(300)
+            preview(fx('amex.csv'))
+            commit()
+            data = page.evaluate("JSON.parse(localStorage.getItem('budget.data.v1'))")
+            amex = [t for t in data['tx'] if t['acc'] == 'American Express' and t['a'] == -2340]
+            check('import replaces the same purchase typed by hand', len(amex) == 1 and amex[0]['t'] != 'Von Hand' and amex[0]['c'] == 'sonstiges' and amex[0]['src'] == 'm', amex)
+
             # Subscription overview (synthetic data)
             page.evaluate("""() => {
                 const now = new Date();
