@@ -668,15 +668,15 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       <p class="card-text">Diese Kosten ändern sich kaum und brauchen kein Budget. Gezeigt wird dein Durchschnitt der letzten 3 Monate.</p>
       <ul class="list" id="fixedList"></ul>
     </details>
-    <section class="card payday-card" id="subsCard" aria-labelledby="subsTitle" hidden>
-      <div class="section-head"><h2 id="subsTitle">Abos</h2></div>
+    <details class="card payday-card fixed-card" id="subsCard" hidden>
+      <summary><span>Abos</span><span class="num" id="subsSummary"></span></summary>
       <div class="payday-summary">
         <div class="payday-stat"><span>Pro Monat</span><strong class="num" id="subsMonth">–</strong></div>
         <div class="payday-stat"><span>Pro Jahr</span><strong class="num" id="subsYear">–</strong></div>
       </div>
       <ul class="payday-list" id="subsList"></ul>
       <p class="card-text" id="subsNote"></p>
-    </section>
+    </details>
     <div class="card">
       <h2>Eigene Kategorie</h2>
       <div class="addcat">
@@ -865,7 +865,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '19';
+  const APP_VERSION = '20';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2728,6 +2728,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     if (card.hidden) return;
     const month = subs.active.reduce((s, x) => s + x.perMonth, 0);
     $('subsMonth').textContent = fmt(month);
+    $('subsSummary').textContent = fmt0(month) + ' pro Monat';
     $('subsYear').textContent = fmt(subs.active.reduce((s, x) => s + x.amount * 12 / x.months, 0));
     const fill = (ul, items) => {
       ul.textContent = '';

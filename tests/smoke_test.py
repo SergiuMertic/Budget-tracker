@@ -301,6 +301,8 @@ def main():
             page.reload()
             page.wait_for_timeout(300)
             page.click('#tab-budgets')
+            check('Abos card is collapsed until opened', page.evaluate('!subsCard.open') and page.is_visible('#subsCard summary'))
+            page.click('#subsCard summary')
             subs = page.evaluate("""() => ({ month: subsMonth.textContent, year: subsYear.textContent,
                 rows: Array.from(subsList.querySelectorAll('li')).map((li) => li.innerText), card: subsCard.innerText })""")
             check('subscriptions: 3 active, sorted by monthly cost', len(subs['rows']) == 3 and 'NETFLIX' in subs['rows'][0] and 'ADOBE' in subs['rows'][1] and 'SPOTIFY' in subs['rows'][2], subs)

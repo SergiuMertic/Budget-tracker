@@ -127,6 +127,8 @@ Every line should start with `PASS`, and the last line should be `errors: none`.
 
 - **Budget split (v19)**: the Budgets tab lists only categories you can steer (`canBudget`). Fixed costs (`FIXED_CATS`: wohnen, versicherung, handy, kredit, gebuehren, abos) sit in a collapsed "Fixkosten" card with their 3-month average and a total, and `NO_BUDGET_CATS` (bargeld, eigene) are left out. Budget totals, the overview budget line and "Leere Budgets füllen" ignore fixed categories. Ended subscriptions are no longer shown in the Abos card.
 
+- **Abos card collapsible (v20)**: the Abos card is a `<details>` like Fixkosten, closed by default, with the monthly total in its header. Content inside a closed `<details>` has empty `innerText`, so tests use `textContent` or open it first.
+
 ## Open tasks (in the owner's order of priority)
 
 1. **More card imports**: Mastercard Gold (Advanzia) and Klarna. Ask the owner for a sample export before writing a parser. Follow the Amex approach: detect the file, turn the signs if needed, and use an account name that `isCardAcc` recognises so payments are matched.
