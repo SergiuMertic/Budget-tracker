@@ -201,6 +201,12 @@ def main():
             check('unlinked Amex debit uses the current card balance and configured day', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row and re.search(day_re, row) for row in forecast['rows']), forecast)
             check('automatic debit warns about a shortfall by the configured day', abs(num(forecast['free']) + 23.45) < 0.005 and 'automatische Abbuchung' in forecast['warning'] and 'bis zum' in forecast['warning'] and re.search(day_re, forecast['warning']) and 'Rücklastschrift' in forecast['warning'], forecast)
 
+            page.click('#tab-overview')
+            pace = page.text_content('#paydayPace') or ''
+            check('daily pace shown until payday', page.is_visible('#paydayPace') and 'Bis zum Gehalt (noch' in pace, pace)
+            chart = page.evaluate("() => ({ hidden: paydayChart.hidden, box: JSON.stringify(paydayChart.getBoundingClientRect()), text: paydayChart.textContent })")
+            check('balance line chart shown with a lowest point', json.loads(chart['box'])['height'] > 40 and 'Tiefpunkt' in chart['text'], chart)
+
             # Entry by hand on a card: picker, owed amount, payment day, replaced by a later import
             base = """(extra) => {
                 const data = { v: 1, tx: [], budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: '2026-01-01', a: 100000 } }, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' };
@@ -319,6 +325,7 @@ def main():
             page.wait_for_timeout(200)
             home = num(page.text_content('#sumOut'))
             check('Nur ich leaves the partner out, Haushalt adds it', abs(only_me - 10) < 0.005 and abs(home - 30) < 0.005, (only_me, home))
+            check('spending ring shown with a legend', page.is_visible('#donutCard') and page.locator('#donutLegend li').count() >= 1)
             page.click('#scopeSeg button[data-scope="me"]')
 
             # Entry by hand can be changed afterwards
