@@ -9,8 +9,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Budget">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#123F3B" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0B2826" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F8EFDA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#211A12" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -32,69 +32,69 @@ img { max-width: 100%; }
 [hidden] { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-/* Layout: a dark petrol header band, then one narrow phone column on a warm off-white (light) or black (dark) page.
+/* Layout: a sand header band, then one narrow phone column on a beige (light) or warm espresso (dark) page. Accent is a muted sage.
    Income is green, spending is coral, saving is blue. Each category has its own color. */
 :root {
-  --bg: #F5F3EE;
-  --surface: #FFFFFF;
-  --surface-2: #F3F1EA;
-  --well-line: #E2DDD0;
-  --hero: #E2EFEC;
-  --track: #E4DFD3;
-  --tab-bg: #EAE6DC;
-  --tab-on: #1F6B64;
-  --tab-on-ink: #FFFFFF;
-  --ink: #1B1C1A;
-  --muted: #616863;
-  --line: #E9E5DB;
-  --primary: #1F6B64;
-  --primary-ink: #FFFFFF;
-  --header: #1C5A54;
-  --header-top: #123F3B;
-  --header-ink: #FFFFFF;
-  --header-muted: #C6E4DE;
-  --in: #2D7426;
-  --in-bar: #5FA84E;
-  --out-bar: #DE6A43;
-  --save: #2C67AE;
-  --save-bar: #4D8BD0;
-  --over: #B3261E;
-  --over-soft: #FBEAE7;
-  --over-bar: #D9453B;
-  --warn-bar: #E0A030;
+  --bg: #F5EBD7;
+  --surface: #FCF8EE;
+  --surface-2: #F3E8D1;
+  --well-line: #E6D6B8;
+  --hero: #F0E0BD;
+  --track: #E5D5B3;
+  --tab-bg: #EBDDC0;
+  --tab-on: #66714A;
+  --tab-on-ink: #FCF8EE;
+  --ink: #2E261A;
+  --muted: #82735A;
+  --line: #ECDEC2;
+  --primary: #66714A;
+  --primary-ink: #FCF8EE;
+  --header: #EEDEBB;
+  --header-top: #F8EFDA;
+  --header-ink: #2E261A;
+  --header-muted: #82735A;
+  --in: #4A7436;
+  --in-bar: #86A66F;
+  --out-bar: #D0714F;
+  --save: #3F6A99;
+  --save-bar: #6F95BE;
+  --over: #A8362C;
+  --over-soft: #F6E3DC;
+  --over-bar: #C8463A;
+  --warn-bar: #D9A441;
   --soft-alpha: 0.15;
-  --toast-action: #8FE0D6;
-  --focus: #1F6B64;
-  --shadow: 0 1px 2px rgb(40 30 20 / 0.06), 0 4px 14px rgb(40 30 20 / 0.06);
-  --shadow-lg: 0 8px 28px rgb(28 26 23 / 0.22);
+  --toast-action: #C5DBB0;
+  --focus: #66714A;
+  --shadow: 0 1px 2px rgb(70 50 30 / 0.05), 0 6px 20px rgb(70 50 30 / 0.07);
+  --shadow-lg: 0 10px 32px rgb(50 36 22 / 0.22);
   --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, -apple-system, sans-serif;
   --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #000000; --surface: #161F1E; --surface-2: #1F2A28; --well-line: #2E3C39; --hero: #1B3330; --track: #34433F;
-    --tab-bg: #161F1E; --tab-on: #3A968D; --tab-on-ink: #FFFFFF;
-    --ink: #EEF3F1; --muted: #A7B3AF; --line: #25302E;
-    --primary: #3A968D; --primary-ink: #FFFFFF;
-    --header: #13403C; --header-top: #0B2826; --header-ink: #FFFFFF; --header-muted: #A8D5CE;
-    --in: #92D782; --in-bar: #6DBF5C; --out-bar: #EE7C55; --save: #93BDF0; --save-bar: #5C97D6;
-    --over: #FF8A80; --over-soft: #3A1715; --over-bar: #E8574C; --warn-bar: #E6AE4C;
-    --soft-alpha: 0.22; --toast-action: #1F6B64; --focus: #6FD0C5;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --bg: #1B1610; --surface: #272017; --surface-2: #30281D; --well-line: #41372A; --hero: #352B1E; --track: #4A3F2E;
+    --tab-bg: #272017; --tab-on: #A3AE80; --tab-on-ink: #1B1610;
+    --ink: #F3EBD9; --muted: #BAAC92; --line: #362E22;
+    --primary: #A3AE80; --primary-ink: #1B1610;
+    --header: #2B231A; --header-top: #211A12; --header-ink: #F3EBD9; --header-muted: #BAAC92;
+    --in: #A9D08E; --in-bar: #86B06E; --out-bar: #E28B68; --save: #9DBDE0; --save-bar: #6D9AC9;
+    --over: #FF9A8E; --over-soft: #40201C; --over-bar: #E8574C; --warn-bar: #E6AE4C;
+    --soft-alpha: 0.22; --toast-action: #56623E; --focus: #BDC99A;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
     --shadow-lg: 0 8px 28px rgb(0 0 0 / 0.6);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #000000; --surface: #161F1E; --surface-2: #1F2A28; --well-line: #2E3C39; --hero: #1B3330; --track: #34433F;
-  --tab-bg: #161F1E; --tab-on: #3A968D; --tab-on-ink: #FFFFFF;
-  --ink: #EEF3F1; --muted: #A7B3AF; --line: #25302E;
-  --primary: #3A968D; --primary-ink: #FFFFFF;
-  --header: #13403C; --header-top: #0B2826; --header-ink: #FFFFFF; --header-muted: #A8D5CE;
-  --in: #92D782; --in-bar: #6DBF5C; --out-bar: #EE7C55; --save: #93BDF0; --save-bar: #5C97D6;
-  --over: #FF8A80; --over-soft: #3A1715; --over-bar: #E8574C; --warn-bar: #E6AE4C;
-  --soft-alpha: 0.22; --toast-action: #1F6B64; --focus: #6FD0C5;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --bg: #1B1610; --surface: #272017; --surface-2: #30281D; --well-line: #41372A; --hero: #352B1E; --track: #4A3F2E;
+  --tab-bg: #272017; --tab-on: #A3AE80; --tab-on-ink: #1B1610;
+  --ink: #F3EBD9; --muted: #BAAC92; --line: #362E22;
+  --primary: #A3AE80; --primary-ink: #1B1610;
+  --header: #2B231A; --header-top: #211A12; --header-ink: #F3EBD9; --header-muted: #BAAC92;
+  --in: #A9D08E; --in-bar: #86B06E; --out-bar: #E28B68; --save: #9DBDE0; --save-bar: #6D9AC9;
+  --over: #FF9A8E; --over-soft: #40201C; --over-bar: #E8574C; --warn-bar: #E6AE4C;
+  --soft-alpha: 0.22; --toast-action: #56623E; --focus: #BDC99A;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
   --shadow-lg: 0 8px 28px rgb(0 0 0 / 0.6);
   color-scheme: dark;
 }
@@ -115,7 +115,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .num { font-variant-numeric: tabular-nums; }
 
 /* Header band */
-.band { background: linear-gradient(180deg, var(--header-top), var(--header)); color: var(--header-ink); }
+.band { background: linear-gradient(180deg, var(--header-top), var(--header)); color: var(--header-ink); border-bottom: 1px solid var(--well-line); }
 .band-in {
   max-width: 480px; margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -125,7 +125,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   display: flex; align-items: center; justify-content: center; gap: 12px;
 }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.logo-img { width: 48px; height: 48px; flex: none; border-radius: 12px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.25); }
+.logo-img { width: 48px; height: 48px; flex: none; border-radius: 12px; box-shadow: 0 2px 10px rgb(60 40 20 / 0.18); }
 h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-height: 1; margin: 0; letter-spacing: 0.01em; }
 
 .app {
@@ -464,6 +464,10 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 .seg button { height: 42px; border-radius: 10px; color: var(--muted); font-weight: 600; }
 .seg button[aria-checked="true"] { background: var(--primary); color: var(--primary-ink); box-shadow: var(--shadow); }
 .textbtn { height: 44px; font-weight: 600; font-size: 15px; }
+/* Simple overview: only the essentials. The full view is one tap away ("Mehr anzeigen"). */
+body.simple .adv { display: none !important; }
+body:not(.simple) .simple-only { display: none !important; }
+#densityBtn { width: 100%; color: var(--muted); }
 
 /* Toast */
 .toast-wrap {
@@ -528,7 +532,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           </button>
         </div>
 
-        <button type="button" class="secondary" id="reviewBtn">Monatsrückblick</button>
+        <button type="button" class="secondary adv" id="reviewBtn">Monatsrückblick</button>
 
         <div class="seg" id="scopeSeg" role="radiogroup" aria-label="Ansicht" hidden>
           <button type="button" role="radio" data-scope="me" aria-checked="true">Nur ich</button>
@@ -561,7 +565,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           </div>
         </div>
 
-        <section class="card" id="insightCard" aria-label="Auffälligkeiten" hidden>
+        <section class="card adv" id="insightCard" aria-label="Auffälligkeiten" hidden>
           <ul class="insights" id="insightList"></ul>
         </section>
 
@@ -577,14 +581,14 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
               <strong class="num" id="paydayFree">–</strong>
             </div>
           </div>
-          <p class="card-text" id="paydayPace" hidden></p>
-          <svg class="pchart" id="paydayChart" viewBox="0 0 320 110" role="img" aria-label="Verlauf des Kontostands bis zum Gehalt" hidden></svg>
+          <p class="card-text adv" id="paydayPace" hidden></p>
+          <svg class="pchart adv" id="paydayChart" viewBox="0 0 320 110" role="img" aria-label="Verlauf des Kontostands bis zum Gehalt" hidden></svg>
           <p class="card-text" id="paydayNote" aria-live="polite"></p>
-          <ul class="payday-list" id="paydayList" hidden></ul>
+          <ul class="payday-list adv" id="paydayList" hidden></ul>
           <p class="payday-warning" id="paydayWarning" role="alert" hidden></p>
         </section>
 
-        <section class="card balcard" id="balCard" aria-labelledby="balTitle">
+        <section class="card balcard adv" id="balCard" aria-labelledby="balTitle">
           <div class="section-head"><h2 id="balTitle">Kontostände</h2><span class="num" id="balTotal"></span></div>
           <ul class="ballist" id="balList"></ul>
           <button type="button" class="secondary" data-action="add-tx">
@@ -605,7 +609,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </button>
 
-        <section class="card donut-card" id="donutCard" aria-label="Ausgaben im Überblick" hidden>
+        <section class="card donut-card adv" id="donutCard" aria-label="Ausgaben im Überblick" hidden>
           <svg id="donut" viewBox="0 0 120 120" aria-hidden="true"></svg>
           <ul class="dleg" id="donutLegend"></ul>
         </section>
@@ -617,19 +621,27 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
         <ul class="list" id="catList" hidden></ul>
         <p class="empty" id="catEmpty">Keine Ausgaben in diesem Monat.</p>
 
-        <div class="section-head" id="incHead">
+        <div class="section-head adv" id="incHead">
           <h2>Einnahmen</h2>
         </div>
-        <ul class="list" id="incList"></ul>
+        <ul class="list adv" id="incList"></ul>
 
-        <div class="section-head">
-          <h2>Verlauf</h2>
-          <span>6 Monate</span>
+        <div class="adv">
+          <div class="section-head">
+            <h2>Verlauf</h2>
+            <span>6 Monate</span>
+          </div>
+          <div class="list">
+            <div class="chart" id="chart"></div>
+            <div class="chart-cap"><span class="li">Einnahmen</span><span class="lo">Ausgaben</span><b id="chartAvg" class="num" style="font-weight:500"></b></div>
+          </div>
         </div>
-        <div class="list">
-          <div class="chart" id="chart"></div>
-          <div class="chart-cap"><span class="li">Einnahmen</span><span class="lo">Ausgaben</span><b id="chartAvg" class="num" style="font-weight:500"></b></div>
-        </div>
+
+        <button type="button" class="secondary simple-only" data-action="add-tx">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Ausgabe von Hand eintragen
+        </button>
+        <button type="button" class="textbtn" id="densityBtn" aria-pressed="false">Mehr anzeigen</button>
       </div>
     </div>
   </section>
@@ -935,7 +947,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '29';
+  const APP_VERSION = '31';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -1287,6 +1299,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
       out.opts.payday = raw.opts.payday === true;
       out.opts.cashSince = /^\d{4}-\d{2}-\d{2}$/.test(raw.opts.cashSince) ? raw.opts.cashSince : '';
       out.opts.household = raw.opts.household === true;
+      if (typeof raw.opts.simple === 'boolean') out.opts.simple = raw.opts.simple;
       if (Array.isArray(raw.opts.expected)) raw.opts.expected.slice(0, 20).forEach((x) => {
         const a = Math.round(Number(x && x.a));
         if (!x || !isFinite(a) || a <= 0 || a > 1e9 || !/^\d{4}-\d{2}-\d{2}$/.test(x.d)) return;
@@ -3345,7 +3358,16 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('note').textContent = 'Alles bleibt auf diesem Gerät. Nichts wird hochgeladen. · Version ' + APP_VERSION;
   }
 
+  function isSimple() { return S.opts.simple !== false; }
+  function applyDensity() {
+    const simple = isSimple();
+    document.body.classList.toggle('simple', simple);
+    const b = $('densityBtn');
+    if (b) { b.textContent = simple ? 'Mehr anzeigen' : 'Weniger anzeigen'; b.setAttribute('aria-pressed', simple ? 'false' : 'true'); }
+  }
+
   function render() {
+    applyDensity();
     markHandSettlements();
     buildPeriods();
     renderTabs();
@@ -3887,6 +3909,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
     $('csvInput').click();
   }));
   $$('[data-action="add-tx"]').forEach((b) => b.addEventListener('click', openAdd));
+  $('densityBtn').addEventListener('click', () => { S.opts.simple = !isSimple(); save(); render(); });
   $('csvInput').addEventListener('change', (e) => {
     const files = Array.prototype.slice.call(e.target.files || []);
     importMsg('');

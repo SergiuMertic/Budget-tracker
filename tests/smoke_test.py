@@ -52,6 +52,13 @@ def main():
                 opts['executable_path'] = os.environ['CHROME']
             browser = p.chromium.launch(**opts)
             ctx = browser.new_context(viewport={'width': 390, 'height': 844}, locale='de-DE', accept_downloads=True, reduced_motion='reduce')
+            # The overview opens in its simple view by default. The older checks need the full view, so unless a test
+            # sets window.__keepSimple, saved data without a density choice is read as "full view".
+            ctx.add_init_script("""(() => { const g = Storage.prototype.getItem;
+                Storage.prototype.getItem = function (k) { const v = g.call(this, k);
+                    if (k !== 'budget.data.v1' || !v || window.__keepSimple) return v;
+                    try { const d = JSON.parse(v); if (d && d.opts && d.opts.simple === undefined) { d.opts.simple = false; return JSON.stringify(d); } } catch (e) {}
+                    return v; }; })()""")
             page = ctx.new_page()
             page.on('pageerror', lambda e: errors.append('pageerror: ' + str(e)))
             page.on('console', lambda m: errors.append('console: ' + m.text) if m.type == 'error' else None)
@@ -103,6 +110,9 @@ def main():
 
             # Balances and Verfügbar
             page.click('#tab-overview')
+            check('overview starts in the simple view', page.evaluate("() => document.body.classList.contains('simple') && !balCard.offsetParent && !!document.querySelector('.simple-only').offsetParent"))
+            page.click('#densityBtn')
+            check('Mehr anzeigen opens the full view and it is remembered', page.evaluate("() => !document.body.classList.contains('simple') && !!balCard.offsetParent && densityBtn.textContent === 'Weniger anzeigen' && JSON.parse(localStorage.getItem('budget.data.v1')).opts.simple === false"))
             page.click('#balList .balrow:has-text("Sparkasse")')
             page.wait_for_selector('#balSheet[open]')
             page.fill('#balAmt', '500')
