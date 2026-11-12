@@ -9,8 +9,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Budget">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#F8EFDA" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#211A12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F5EBD7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1B1610" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -115,14 +115,10 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .num { font-variant-numeric: tabular-nums; }
 
 /* Header band */
-.band { background: linear-gradient(180deg, var(--header-top), var(--header)); color: var(--header-ink); border-bottom: 1px solid var(--well-line); }
+.band { background: var(--bg); color: var(--header-ink); }
 .band-in {
   max-width: 480px; margin: 0 auto;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-top: calc(36px + env(safe-area-inset-top, 0px));
-  padding-bottom: 18px;
-  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
 }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .logo-img { width: 48px; height: 48px; flex: none; border-radius: 12px; box-shadow: 0 2px 10px rgb(60 40 20 / 0.18); }
@@ -494,12 +490,7 @@ body:not(.simple) .simple-only { display: none !important; }
 </head>
 <body>
 <header class="band">
-  <div class="band-in">
-    <div class="brand">
-      <img class="logo-img" src="icons/icon-192.png" alt="" width="48" height="48">
-      <h1>Budget</h1>
-    </div>
-  </div>
+  <div class="band-in"><h1 class="sr-only">Budget</h1></div>
 </header>
 
 <div class="app">
@@ -947,7 +938,7 @@ body:not(.simple) .simple-only { display: none !important; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '31';
+  const APP_VERSION = '32';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
