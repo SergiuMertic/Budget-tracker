@@ -479,6 +479,25 @@ def main():
             ap = page.evaluate("() => ({ rows: Array.from(subsList.children).map((li) => li.textContent.replace(/\\s+/g, ' ')), month: subsMonth.textContent })")
             check('App Store charges are split by price and the 2-month one is recognised', len(ap['rows']) == 3 and any('alle 2 Monate' in r and '2,99' in r for r in ap['rows']) and abs(num(ap['month']) - (0.99 + 4.49 + 1.50)) < 0.011, ap)
 
+            # Nothing may be wider than the screen, also with long payee names and the collapsible cards open
+            page.set_viewport_size({'width': 360, 'height': 800})
+            page.evaluate("""() => {
+                const now = new Date();
+                const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                const ago = (days) => { const d = new Date(now); d.setDate(d.getDate() - days); return iso(d); };
+                let n = 0; const tx = [];
+                const mk = (d, a, name, c) => tx.push({ id: 'lw' + (++n), d: d, a: a, n: name, p: '', t: '', acc: 'Example Checking', c: c, src: 'r', k: 'lw' + n });
+                for (let i = 0; i < 4; i++) { mk(ago(5 + 30 * i), -2799, 'GOOGLE*YOUTUBEPREMIUM', 'abos'); mk(ago(8 + 30 * i), -999, 'AMAZON EU S.A R.L., NIEDERLASSUNG DEUTSC', 'abos'); mk(ago(9 + 30 * i), -62000, 'Vermieter Miete', 'wohnen'); }
+                localStorage.setItem('budget.data.v1', JSON.stringify({ v: 1, tx: tx, budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: ago(1), a: 100000 } }, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {} }, owner: '' }));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-budgets')
+            page.evaluate("subsCard.open = true; fixedCard.open = true")
+            wide = page.evaluate("() => ({ doc: document.documentElement.scrollWidth, win: innerWidth, subs: subsCard.getBoundingClientRect().right, list: subsList.getBoundingClientRect().right, year: subsYear.getBoundingClientRect().right })")
+            check('no horizontal overflow on the Budgets tab at 360 px', wide['doc'] <= wide['win'] and wide['list'] <= wide['subs'] + 0.5 and wide['year'] <= wide['subs'] + 0.5, wide)
+            page.set_viewport_size({'width': 390, 'height': 844})
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)

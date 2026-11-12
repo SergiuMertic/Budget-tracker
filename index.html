@@ -219,11 +219,16 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-h
 .rev-list .rv { flex: none; font-weight: 600; white-space: nowrap; }
 .rev-list .rm { display: block; font-size: 13px; color: var(--muted); font-weight: 400; }
 .sonst-row { width: 100%; text-align: left; }
+.fixed-card { display: block; overflow: hidden; }
+.fixed-card > * { min-width: 0; max-width: 100%; }
+.fixed-card > :not(summary) { margin-top: 12px; }
+.fixed-card > details-content, .fixed-card::details-content { min-width: 0; }
 .fixed-card summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; cursor: pointer; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
 .fixed-card summary::-webkit-details-marker { display: none; }
 .fixed-card summary::after { content: '⌄'; color: var(--muted); margin-left: 4px; }
 .fixed-card[open] summary::after { content: '⌃'; }
 .fixed-card .list { margin-top: 8px; }
+.payday-detail, .payday-list > li { min-width: 0; }
 .fixed-card .brow > .num { justify-self: end; font-weight: 600; }
 .donut-card { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; align-items: center; }
 .donut-card svg { width: 132px; height: 132px; display: block; }
@@ -255,7 +260,7 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-h
 
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow);
-  padding: 16px; display: grid; gap: 12px;
+  padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px;
 }
 .card h2 { margin: 0; }
 .card-text { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
@@ -930,7 +935,7 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '27';
+  const APP_VERSION = '28';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
