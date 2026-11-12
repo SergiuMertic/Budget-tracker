@@ -462,8 +462,25 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 .textbtn { height: 44px; font-weight: 600; font-size: 15px; }
 /* Simple overview: only the essentials. The full view is one tap away ("Mehr anzeigen"). */
 body.simple .adv { display: none !important; }
-body:not(.simple) .simple-only { display: none !important; }
 #densityBtn { width: 100%; color: var(--muted); }
+body.simple .hero-month { padding-top: 0; border-top: 0; }
+#overviewMain { padding-bottom: 84px; }
+/* Headline: the one question people ask - how much can I still spend? */
+.now-card { gap: 6px; }
+.now-label { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.now-big { font-family: var(--font-display); font-weight: 700; font-size: 54px; line-height: 1.05; letter-spacing: 0.005em; }
+.now-big.neg { color: var(--over); }
+.now-text { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.4; }
+.now-status { margin-top: 6px; padding: 10px 12px; border-radius: 12px; font-weight: 600; font-size: 15px; line-height: 1.3;
+  background: color-mix(in srgb, var(--in-bar) 22%, transparent); color: var(--in); }
+.now-status.warn { background: color-mix(in srgb, var(--warn-bar) 26%, transparent); color: var(--ink); }
+.now-status.bad { background: var(--over-soft); color: var(--over); }
+.fab {
+  position: fixed; z-index: 20; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  display: inline-flex; align-items: center; gap: 8px; height: 52px; padding: 0 20px 0 16px; border-radius: 26px;
+  background: var(--primary); color: var(--primary-ink); font-weight: 700; font-size: 16px; box-shadow: var(--shadow-lg);
+}
+.fab svg { width: 20px; height: 20px; }
 
 /* Toast */
 .toast-wrap {
@@ -530,10 +547,18 @@ body:not(.simple) .simple-only { display: none !important; }
           <button type="button" role="radio" data-scope="home" aria-checked="false">Haushalt</button>
         </div>
 
+        <section class="card now-card" id="nowCard" aria-live="polite">
+          <div class="now-label" id="nowLabel">Zum Ausgeben</div>
+          <div class="now-big num" id="nowBig">–</div>
+          <p class="now-text" id="nowText"></p>
+          <div class="now-status" id="nowStatus" hidden></div>
+          <button type="button" class="secondary" id="nowAction" hidden></button>
+        </section>
+
         <div class="hero" id="hero">
-          <div class="avail" id="avail">
+          <div class="avail adv" id="avail">
             <div class="hero-top">
-              <span class="hero-label">Verfügbar</span>
+              <span class="hero-label">Auf dem Konto</span>
               <span class="hero-count num" id="availStand"></span>
             </div>
             <div class="hero-big num" id="availBig">0,00 €</div>
@@ -560,15 +585,15 @@ body:not(.simple) .simple-only { display: none !important; }
           <ul class="insights" id="insightList"></ul>
         </section>
 
-        <section class="card payday-card" id="paydayCard" aria-labelledby="paydayTitle" hidden>
+        <section class="card payday-card adv" id="paydayCard" aria-labelledby="paydayTitle" hidden>
           <div class="section-head"><h2 id="paydayTitle">Bis zum Gehalt</h2></div>
           <div class="payday-summary">
             <div class="payday-stat">
-              <span id="paydayDueLabel">Noch fällig bis —</span>
+              <span id="paydayDueLabel">Noch zu zahlen bis zum Gehalt</span>
               <strong class="num" id="paydayDue">–</strong>
             </div>
             <div class="payday-stat">
-              <span>Frei verfügbar</span>
+              <span>Zum Ausgeben</span>
               <strong class="num" id="paydayFree">–</strong>
             </div>
           </div>
@@ -587,12 +612,6 @@ body:not(.simple) .simple-only { display: none !important; }
             Barzahlung oder Umsatz von Hand
           </button>
         </section>
-
-        <button type="button" class="hint" id="backupHint" hidden>
-          <span class="dot" aria-hidden="true"></span>
-          <span id="backupHintText">Backup fehlt</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </button>
 
         <button type="button" class="hint" id="openHint" hidden>
           <span class="dot" aria-hidden="true"></span>
@@ -628,11 +647,16 @@ body:not(.simple) .simple-only { display: none !important; }
           </div>
         </div>
 
-        <button type="button" class="secondary simple-only" data-action="add-tx">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-          Ausgabe von Hand eintragen
+        <button type="button" class="hint" id="backupHint" hidden>
+          <span class="dot" aria-hidden="true"></span>
+          <span id="backupHintText">Backup fehlt</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </button>
         <button type="button" class="textbtn" id="densityBtn" aria-pressed="false">Mehr anzeigen</button>
+        <button type="button" class="fab" id="addFab" data-action="add-tx" aria-label="Ausgabe von Hand eintragen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Ausgabe
+        </button>
       </div>
     </div>
   </section>
@@ -938,7 +962,7 @@ body:not(.simple) .simple-only { display: none !important; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '32';
+  const APP_VERSION = '33';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2161,6 +2185,7 @@ body:not(.simple) .simple-only { display: none !important; }
     rows.sort((a, b) => (b.spent - a.spent) || (b.budget - a.budget));
     renderDonut(rows);
     renderInsights(rows, prevStats);
+    renderNow(available, rows);
     const maxSpent = rows.reduce((m, r) => Math.max(m, r.spent), 1);
     const list = $('catList');
     list.textContent = '';
@@ -2506,6 +2531,45 @@ body:not(.simple) .simple-only { display: none !important; }
     });
     return due.sort((a, b) => a.date.localeCompare(b.date) || a.payee.localeCompare(b.payee));
   }
+  let paydayInfo = { payday: null, free: null, daysLeft: 0 };
+  // The headline card: one number, one sentence and one status line, in everyday words
+  function renderNow(available, rows) {
+    const big = $('nowBig'), text = $('nowText'), status = $('nowStatus'), act = $('nowAction');
+    status.hidden = true; status.className = 'now-status'; act.hidden = true;
+    big.classList.remove('neg');
+    const info = paydayInfo;
+    const accs = accounts();
+    if (!available.n) {
+      $('nowLabel').textContent = 'Auf dem Konto';
+      big.textContent = '–';
+      text.textContent = 'Trage deinen aktuellen Kontostand ein, dann sage ich dir, wie viel du noch ausgeben kannst.';
+      if (accs.length) { act.hidden = false; act.textContent = 'Kontostand eintragen'; act.onclick = () => openBal(accs[0].name); }
+      return;
+    }
+    if (info.payday && info.free != null) {
+      $('nowLabel').textContent = 'Bis zum ' + fDate.format(fromISO(info.payday)) + ' zum Ausgeben';
+      big.textContent = fmt(info.free);
+      big.classList.toggle('neg', info.free < 0);
+      text.textContent = (info.free > 0 && info.daysLeft >= 1 ? 'Das sind etwa ' + fmt0(info.free / info.daysLeft) + ' pro Tag (noch ' + plural(info.daysLeft, 'Tag', 'Tage') + '). ' : '')
+        + 'Auf dem Konto: ' + fmt(available.sum) + '.';
+    } else {
+      $('nowLabel').textContent = 'Auf dem Konto';
+      big.textContent = fmt(available.sum);
+      big.classList.toggle('neg', available.sum < 0);
+      text.textContent = 'Sobald dein Gehalt importiert ist, zeige ich dir, was bis zum Gehaltstag übrig bleibt.';
+    }
+    // Status: the most urgent thing first
+    const over = rows.filter((r) => r.c.kind === 'out' && r.budget && r.spent > r.budget);
+    const near = rows.filter((r) => r.c.kind === 'out' && r.budget && r.spent <= r.budget && r.spent / r.budget > 0.85);
+    let msg = '', cls = '';
+    if (!$('paydayWarning').hidden && $('paydayWarning').textContent.indexOf('reicht voraussichtlich nicht') >= 0) { msg = 'Aufpassen: Das Geld reicht voraussichtlich nicht für alle Abbuchungen bis zum Gehalt.'; cls = 'bad'; }
+    else if (info.free != null && info.free < 0) { msg = 'Aufpassen: Bis zum Gehalt reicht das Geld nicht.'; cls = 'bad'; }
+    else if (over.length) { msg = 'Über Budget: ' + over.slice(0, 2).map((r) => r.c.name).join(', ') + (over.length > 2 ? ' und ' + (over.length - 2) + ' weitere' : ''); cls = 'bad'; }
+    else if (near.length) { msg = 'Fast aufgebraucht: ' + near.slice(0, 2).map((r) => r.c.name).join(', '); cls = 'warn'; }
+    else if (rows.some((r) => r.c.kind === 'out' && r.budget)) { msg = 'Alles im Plan'; cls = ''; }
+    if (msg) { status.hidden = false; status.textContent = msg; if (cls) status.classList.add(cls); }
+  }
+
   function renderPayday(available) {
     const card = $('paydayCard'), list = $('paydayList'), warning = $('paydayWarning');
     if (!S.tx.length) { card.hidden = true; return; }
@@ -2516,7 +2580,8 @@ body:not(.simple) .simple-only { display: none !important; }
     warning.hidden = true;
 
     const payday = nextPaydayDate();
-    $('paydayDueLabel').textContent = payday ? 'Noch fällig bis ' + fDate.format(fromISO(payday)) : 'Noch fällig bis —';
+    paydayInfo = { payday: payday, free: null, daysLeft: 0 };
+    $('paydayDueLabel').textContent = payday ? 'Noch zu zahlen bis ' + fDate.format(fromISO(payday)) : 'Noch zu zahlen bis zum Gehalt';
     $('paydayDue').textContent = payday ? fmt(0) : '–';
     $('paydayFree').textContent = available.n ? fmt(available.sum) : '–';
     $('paydayFree').classList.toggle('neg', available.n && available.sum < 0);
@@ -2532,6 +2597,8 @@ body:not(.simple) .simple-only { display: none !important; }
     $('paydayDue').textContent = fmt(total);
     $('paydayFree').textContent = available.n ? fmt(available.sum - total) : '–';
     $('paydayFree').classList.toggle('neg', available.n && available.sum - total < 0);
+    paydayInfo.free = available.n ? available.sum - total : null;
+    paydayInfo.daysLeft = daysBetween(today(), payday);
     $('paydayNote').textContent = due.length
       ? 'Gehaltstermin und Abbuchungen sind anhand bisheriger Umsätze geschätzt.'
       : 'Keine weiteren regelmäßigen Abbuchungen bis zum Gehalt erkannt. Der Gehaltstermin ist geschätzt.';

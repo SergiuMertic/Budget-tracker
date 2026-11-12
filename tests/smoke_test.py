@@ -110,7 +110,7 @@ def main():
 
             # Balances and Verfügbar
             page.click('#tab-overview')
-            check('overview starts in the simple view', page.evaluate("() => document.body.classList.contains('simple') && !balCard.offsetParent && !!document.querySelector('.simple-only').offsetParent"))
+            check('overview starts in the simple view', page.evaluate("() => document.body.classList.contains('simple') && !balCard.offsetParent && addFab.getClientRects().length > 0 && !!nowCard.offsetParent && !paydayCard.offsetParent"), page.evaluate("() => [document.body.className, !!balCard.offsetParent, addFab.getClientRects().length, !!nowCard.offsetParent, !!paydayCard.offsetParent]"))
             page.click('#densityBtn')
             check('Mehr anzeigen opens the full view and it is remembered', page.evaluate("() => !document.body.classList.contains('simple') && !!balCard.offsetParent && densityBtn.textContent === 'Weniger anzeigen' && JSON.parse(localStorage.getItem('budget.data.v1')).opts.simple === false"))
             page.click('#balList .balrow:has-text("Sparkasse")')
@@ -210,6 +210,8 @@ def main():
             })""")
             check('unlinked Amex debit uses the current card balance and configured day', abs(num(forecast['due']) - 623.45) < 0.005 and len(forecast['rows']) == 2 and any('American Express' in row and '123,45' in row and re.search(day_re, row) for row in forecast['rows']), forecast)
             check('automatic debit warns about a shortfall by the configured day', abs(num(forecast['free']) + 23.45) < 0.005 and 'automatische Abbuchung' in forecast['warning'] and 'bis zum' in forecast['warning'] and re.search(day_re, forecast['warning']) and 'Rücklastschrift' in forecast['warning'], forecast)
+            now = page.evaluate("() => ({ big: nowBig.textContent, free: paydayFree.textContent, status: nowStatus.textContent, bad: nowStatus.classList.contains('bad'), label: nowLabel.textContent })")
+            check('headline card shows the money free until payday and warns when it is short', now['big'] == now['free'] and 'Aufpassen' in now['status'] and now['bad'] and 'zum Ausgeben' in now['label'], now)
 
             page.click('#tab-overview')
             pace = page.text_content('#paydayPace') or ''
