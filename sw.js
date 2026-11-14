@@ -1,6 +1,6 @@
 // Service worker: keeps the app working without internet.
 // Bump CACHE when any file changes so phones pick up the new version.
-const CACHE = 'budget-v36';
+const CACHE = 'budget-v37';
 const ASSETS = [
   "./",
   "./index.html",
@@ -60,6 +60,15 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => caches.match('./index.html').then((hit) => hit || fetch(req)))
     );
+    return;
+  }
+
+  // The photo reader (several MB) is not saved at install time: it is kept the first time it is used.
+  if (new URL(req.url).pathname.indexOf('/vendor/tesseract/') >= 0) {
+    event.respondWith(caches.open(CACHE).then((cache) => cache.match(req).then((hit) => hit || fetch(req).then((res) => {
+      if (res && res.ok) cache.put(req, res.clone());
+      return res;
+    }))));
     return;
   }
 

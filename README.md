@@ -51,6 +51,6 @@ When you change a file later, raise the number in `CACHE` in `sw.js` so phones l
 
 ## How it works
 
-A single `index.html` with plain HTML, CSS and JavaScript, a web app manifest, and a service worker (`sw.js`) that caches the app for offline use. The fonts (Barlow, SIL Open Font License) are bundled in `fonts/`. PDF statements are read with [pdf.js](https://github.com/mozilla/pdf.js) 5.4.624 (Apache License 2.0), bundled in `vendor/pdfjs/` and loaded only when you pick a PDF.
+A single `index.html` with plain HTML, CSS and JavaScript, a web app manifest, and a service worker (`sw.js`) that caches the app for offline use. The fonts (Barlow, SIL Open Font License) are bundled in `fonts/`. PDF statements are read with [pdf.js](https://github.com/mozilla/pdf.js) 5.4.624 (Apache License 2.0), bundled in `vendor/pdfjs/` and loaded only when you pick a PDF. Receipts that are only a picture are read with [tesseract.js](https://github.com/naptha/tesseract.js) 7.0.0 and its German data (Apache License 2.0), bundled in `vendor/tesseract/` and loaded only when needed; the reading happens on your device.
 
 Made with help from Claude (Anthropic).

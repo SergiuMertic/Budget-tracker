@@ -562,6 +562,60 @@ def main():
             page.wait_for_timeout(300)
             sp = page.evaluate("() => JSON.parse(localStorage.getItem('budget.data.v1')).tx.filter((t) => t.id === 'rc1' || t.so === 'rc1').map((t) => [t.c, t.a])")
             check('undoing the split restores the original payment', len(sp) == 1 and sp[0][1] == -1148, sp)
+            # Receipt that is only a picture (a PDF made of a photo): read with OCR on the device
+            rows = [('Bio Vollmilch', '1,15 B'), ('Bananen', ''), ('0,894 kg x 1,69 EUR/kg', ''), ('', '1,51 B'), ('Spuelmittel', '1,45 A'), ('Zahnpasta', '2,15 A'), ('zu zahlen', '6,26')]
+            shot = ctx.new_page()
+            shot.set_content('<html><body style="margin:0;background:#fff"><div id="r" style="font-family:monospace;font-size:26px;width:520px;padding:20px;color:#222"><div>LIDL Filiale 1234</div><div>12.11.2026 14:03</div>' +
+                ''.join('<div style="display:flex;justify-content:space-between;white-space:pre"><span>%s</span><span>%s</span></div>' % (a, b2) for a, b2 in rows) + '</div></body></html>')
+            png = shot.locator('#r').screenshot()
+            shot.close()
+            import base64
+            ocr_pdf = os.path.join(rc_dir, 'foto.pdf')
+            ip = ctx.new_page()
+            ip.set_content('<html><body style="margin:0"><img style="width:300px" src="data:image/png;base64,%s"></body></html>' % base64.b64encode(png).decode())
+            ip.wait_for_timeout(300)
+            ip.pdf(path=ocr_pdf)
+            ip.close()
+            png_path = os.path.join(rc_dir, 'foto.png')
+            open(png_path, 'wb').write(png)
+            page.evaluate("""() => {
+                const now = new Date(); const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                const data = JSON.parse(localStorage.getItem('budget.data.v1'));
+                data.tx.push({ id: 'rc2', d: iso(now), a: -626, n: 'Lidl Kartenzahlung', p: '', t: '', acc: 'Example Checking', c: 'lebensmittel', src: 'r', k: 'rc2key' });
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-tx')
+            page.fill('#q', 'Lidl Kartenzahlung')
+            page.wait_for_timeout(300)
+            page.click('#txList li button')
+            page.wait_for_selector('#txSheet[open]')
+            page.set_input_files('#receiptInput', ocr_pdf)
+            page.wait_for_selector('#receiptSheet[open]', timeout=120000)
+            rc = page.evaluate("() => ({ items: rcList.children.length, names: [...rcList.querySelectorAll('.rn')].map((x) => x.textContent), sum: rcSum.textContent.replace(/\\s+/g, ' '), note: !rcNote.hidden, intro: rcIntro.textContent })")
+            check('picture-only receipt PDF is read by OCR (4 articles, weighed item kept)', rc['items'] == 4 and '2,66' in rc['sum'] and '3,60' in rc['sum'] and 'Foto' in rc['intro'], rc)
+            page.click('#rcCancel')
+            page.wait_for_timeout(200)
+            page.set_input_files('#receiptInput', png_path)
+            page.wait_for_selector('#receiptSheet[open]', timeout=120000)
+            rc = page.evaluate("() => ({ items: rcList.children.length, sum: rcSum.textContent.replace(/\\s+/g, ' ') })")
+            check('a photo (PNG) of a receipt is read too', rc['items'] == 4 and '2,66' in rc['sum'] and '3,60' in rc['sum'], rc)
+            page.click('#rcCancel')
+            page.wait_for_timeout(200)
+
+            # Split by hand: food amount and the rest
+            page.click('#shManualBtn')
+            page.wait_for_selector('#splitSheet[open]')
+            check('manual split cannot be applied without an amount', page.evaluate("() => spApply.disabled"))
+            page.fill('#spFood', '7,00')
+            check('manual split rejects more than was paid', page.evaluate("() => spApply.disabled && !spErr.hidden"))
+            page.fill('#spFood', '4,40')
+            check('manual split shows food and the rest', page.evaluate("() => !spApply.disabled && /4,40/.test(spSum.textContent) && /1,86/.test(spSum.textContent)"))
+            page.click('#spApply')
+            page.wait_for_timeout(300)
+            sp = page.evaluate("() => JSON.parse(localStorage.getItem('budget.data.v1')).tx.filter((t) => t.id === 'rc2' || t.so === 'rc2').map((t) => [t.c, t.a, t.s0 || 0])")
+            check('manual split stores food and drugstore and keeps the total', sorted(sp) == [['drogerie', -186, 0], ['lebensmittel', -440, -626]] and sum(x[1] for x in sp) == -626, sp)
             page.fill('#q', '')
             page.click('#tab-overview')
 

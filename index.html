@@ -474,6 +474,7 @@ details.guide summary { cursor: pointer; font-weight: 600; font-size: 15px; padd
 .goal-bar { height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
 .goal-bar i { display: block; height: 100%; background: var(--save-bar); border-radius: 4px; }
 .goal-sub { font-size: 14px; color: var(--muted); }
+#ocBar { width: 100%; height: 10px; accent-color: var(--primary); }
 .rc-list { list-style: none; margin: 0; padding: 0; display: grid; max-height: 38vh; overflow: auto; border-top: 1px solid var(--line); }
 .rc-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .rc-list .rn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
@@ -929,9 +930,10 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     </div>
     <div id="shReceipt" hidden>
       <p class="sh-link" id="shSplitNote" hidden></p>
-      <button type="button" class="secondary" id="shReceiptBtn">Kassenbon (PDF) aufteilen</button>
+      <button type="button" class="secondary" id="shReceiptBtn">Kassenbon aufteilen (PDF oder Foto)</button>
+      <button type="button" class="textbtn" id="shManualBtn">Von Hand aufteilen</button>
       <button type="button" class="textbtn" id="shUnsplit" hidden>Aufteilung aufheben</button>
-      <input type="file" id="receiptInput" class="sr-only" accept=".pdf,.PDF,application/pdf">
+      <input type="file" id="receiptInput" class="sr-only" accept=".pdf,.PDF,application/pdf,image/*">
     </div>
     <label class="check"><input type="checkbox" id="shRule"> <span>Immer so zuordnen, wenn dieser Text im Umsatz steht:</span></label>
     <input type="text" class="field" id="shRuleKw" maxlength="40" aria-label="Text für die Regel" autocomplete="off">
@@ -958,6 +960,32 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     <button type="button" class="textbtn" id="gsCancel">Abbrechen</button>
     <button type="button" class="textbtn danger" id="gsDelete" hidden>Sparziel löschen</button>
   </form>
+</dialog>
+
+<!-- Receipt photo is being read on the device (OCR) -->
+<dialog class="sheet" id="ocrSheet" aria-labelledby="ocTitle">
+  <div class="sheet-in">
+    <div class="grab" aria-hidden="true"></div>
+    <h2 id="ocTitle">Bon wird gelesen</h2>
+    <p class="card-text" id="ocMsg">Einen Moment, das passiert nur auf deinem Gerät.</p>
+    <progress id="ocBar" max="100" value="0"></progress>
+    <button type="button" class="textbtn" id="ocCancel">Abbrechen</button>
+  </div>
+</dialog>
+
+<!-- Split one payment by hand: how much was food -->
+<dialog class="sheet" id="splitSheet" aria-labelledby="spTitle">
+  <div class="sheet-in">
+    <div class="grab" aria-hidden="true"></div>
+    <h2 id="spTitle">Von Hand aufteilen</h2>
+    <p class="card-text" id="spIntro"></p>
+    <label class="lbl">Davon Lebensmittel <span class="money"><input type="text" inputmode="decimal" class="field num" id="spFood" placeholder="0" autocomplete="off"><span>€</span></span></label>
+    <label class="lbl">Der Rest ist <select class="field" id="spRest" aria-label="Kategorie für den Rest"></select></label>
+    <ul class="ballist" id="spSum"></ul>
+    <p class="card-msg danger" id="spErr" hidden></p>
+    <button type="button" class="primary" id="spApply">Aufteilen</button>
+    <button type="button" class="textbtn" id="spCancel">Abbrechen</button>
+  </div>
 </dialog>
 
 <!-- Receipt: split one payment into food and other things -->
@@ -1063,7 +1091,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '36';
+  const APP_VERSION = '37';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -2219,16 +2247,23 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     const PRICE = /^(.*?)\s+(-?\d{1,4}(?:\.\d{3})*,\d{2})\s*(?:EUR|€)?\s*(?:[A-Z*]|\d)?$/;
     const TOTAL = /^(?:SUMME|GESAMTSUMME|GESAMT|ZU ZAHLEN|ZAHLBETRAG|TOTAL)\b[^0-9-]*(-?\d{1,4}(?:\.\d{3})*,\d{2})\s*(?:EUR|€)?$/i;
     const SKIP = /^(?:EUR|SUMME|GESAMT|BAR|EC|KARTE|KREDITKARTE|MASTERCARD|VISA|GIROCARD|DEBIT|RUECKGELD|GEGEBEN|MWST|NETTO|BRUTTO|STEUER|SUBTOTAL|TOTAL|PAYBACK|BETRAG|ZAHLUNG|KARTENZAHLUNG|ANZAHL|BON|TSE|TRANSAKTION|ZWISCHENSUMME)\b/;
+    // A price alone on its line (weighed goods: name, "0,894 kg x 1,69 EUR/kg", then the price) belongs to the name above
+    const PRICE_ONLY = /^(-?\d{1,4}(?:\.\d{3})*,\d{2})\s*(?:EUR|€)?\s*(?:[A-Z*]|\d)?$/;
+    const DETAIL = /EUR\s*\/|\d\s*(?:kg|g|l)\s*[x×]|^\d+\s*[x×]\s|[x×]\s*\d+[,.]\d/i;
     const items = [];
-    let total = null;
+    let total = null, prevName = '';
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      let line = lines[i];
       const t = line.match(TOTAL);
       if (t) { total = eurCents('+', t[1]); break; }
+      const lone = line.match(PRICE_ONLY);
+      if (lone && prevName) { line = prevName + ' ' + line; prevName = ''; }
+      else if (!lone && !PRICE.test(line)) { if (!DETAIL.test(line) && !SKIP.test(normText(line))) prevName = line; continue; }
+      else prevName = '';
       const m = line.match(PRICE);
       if (!m) continue;
       const rawName = m[1].trim();
-      if (!rawName || /%/.test(rawName) || /^\d+\s*(?:stk|st\.?|x|×)\b/i.test(rawName) || /\bx$/i.test(rawName)) continue;
+      if (!rawName || /^[A-C]?\s*\d+(?:[,.]\d+)?\s*%$/.test(rawName) || /^\d+\s*(?:stk|st\.?|x|×)\b/i.test(rawName) || /\bx$/i.test(rawName)) continue;
       const norm = normText(rawName);
       if (!norm || SKIP.test(norm)) continue;
       const cents = eurCents(m[2][0] === '-' ? '-' : '+', m[2].replace('-', ''));
@@ -2266,27 +2301,197 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     const cat = categorize(tx);
     tx.c = cat[0]; tx.src = cat[1];
   }
-  async function readReceipt(file, tx) {
-    let lib;
-    try { lib = await loadPdfJs(); }
-    catch (e) { toast('Der PDF-Leser konnte nicht geladen werden. Öffne die App einmal mit Internet.'); return; }
+  /* OCR for receipts that are only a picture (a photo, a scan, or a PDF made of one). The engine (tesseract.js with
+     German data, vendor/tesseract) runs in a worker on this device; nothing is uploaded. Loaded only when needed. */
+  const SIMD_OK = (() => { try { return WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11])); } catch (e) { return false; } })();
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const sc = document.createElement('script');
+      sc.src = src; sc.onload = resolve; sc.onerror = () => reject(new Error('script'));
+      document.head.appendChild(sc);
+    });
+  }
+  async function makeOcrWorker(onLog) {
+    if (!window.Tesseract) await loadScript('./vendor/tesseract/tesseract.min.js');
+    const base = new URL('vendor/tesseract/', document.baseURI).href;
+    const w = await window.Tesseract.createWorker('deu', 1, {
+      workerPath: base + 'worker.min.js',
+      corePath: base + (SIMD_OK ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js'),
+      langPath: base.replace(/\/$/, ''),
+      gzip: true, workerBlobURL: false, cacheMethod: 'none',
+      logger: onLog
+    });
+    // One uniform block keeps the price column on the same line as the article name
+    await w.setParameters({ tessedit_pageseg_mode: '6', preserve_interword_spaces: '1' });
+    return w;
+  }
+  // Grey and stretch the contrast: thermal paper is pale
+  function boostCanvas(cv) {
+    const ctx = cv.getContext('2d'), img = ctx.getImageData(0, 0, cv.width, cv.height), d = img.data, hist = new Array(256).fill(0);
+    for (let i = 0; i < d.length; i += 4) { const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]); d[i] = g; hist[g]++; }
+    const n = d.length / 4;
+    let lo = 0, hi = 255, acc = 0;
+    for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= n * 0.02) { lo = v; break; } }
+    acc = 0;
+    for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= n * 0.3) { hi = v; break; } }
+    if (hi - lo < 40) { lo = Math.max(0, lo - 20); hi = Math.min(255, lo + 120); }
+    for (let i = 0; i < d.length; i += 4) {
+      const g = Math.max(0, Math.min(255, Math.round((d[i] - lo) * 255 / (hi - lo))));
+      d[i] = d[i + 1] = d[i + 2] = g; d[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return cv;
+  }
+  function canvasFor(w, h, targetW) {
+    let k = targetW / w;
+    k = Math.min(k, Math.sqrt(12e6 / (w * h)));
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+    return cv;
+  }
+  async function pdfPageCanvas(pg) {
+    const v1 = pg.getViewport({ scale: 1 });
+    const cv = canvasFor(v1.width, v1.height, 1800);
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+    await pg.render({ canvasContext: ctx, viewport: pg.getViewport({ scale: cv.width / v1.width }) }).promise;
+    return boostCanvas(cv);
+  }
+  async function imageCanvas(file) {
+    let bmp;
+    if (window.createImageBitmap) bmp = await createImageBitmap(file);
+    else {
+      bmp = await new Promise((resolve, reject) => { const im = new Image(); im.onload = () => resolve(im); im.onerror = reject; im.src = URL.createObjectURL(file); });
+    }
+    const w = bmp.width, h = bmp.height;
+    const cv = canvasFor(w, h, Math.min(2000, Math.max(1400, w)));
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(bmp, 0, 0, cv.width, cv.height);
+    if (bmp.close) bmp.close();
+    return boostCanvas(cv);
+  }
+  // OCR text -> the same line format the PDF reader uses. Prices come out as "1.29" or "1 ,29" now and then.
+  function ocrPages(text) {
+    const rows = String(text || '').split('\n').map((l) => l.replace(/[|_~]/g, ' ').replace(/[–—−]/g, '-').replace(/\s+/g, ' ').trim().replace(/(\d)\s*[.,]\s*(\d{2})(?!\d)/g, '$1,$2')).filter(Boolean).map((t) => ({ text: t }));
+    return [rows];
+  }
+  let ocrState = null;
+  async function ocrReceipt(getCanvases) {
+    const bar = $('ocBar'), msg = $('ocMsg');
+    bar.value = 0;
+    msg.textContent = 'Einen Moment, das passiert nur auf deinem Gerät.';
+    ocrState = { cancelled: false, worker: null };
+    const st = ocrState;
+    showDialog($('ocrSheet'));
+    let text = '';
     try {
-      const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
-      const pages = [];
-      for (let n = 1; n <= doc.numPages && n <= 5; n++) {
-        const pg = await doc.getPage(n);
-        pages.push(pageLines((await pg.getTextContent()).items));
+      const canvases = await getCanvases();
+      if (st.cancelled) return 'cancel';
+      st.worker = await makeOcrWorker((m) => {
+        if (st.cancelled || !m) return;
+        if (m.status === 'recognizing text') { bar.value = Math.round(m.progress * 100); msg.textContent = 'Ich lese den Bon …'; }
+        else { msg.textContent = 'Lesehilfe wird vorbereitet …'; }
+      });
+      if (st.cancelled) return 'cancel';
+      for (let i = 0; i < canvases.length; i++) {
+        const r = await st.worker.recognize(canvases[i]);
+        if (st.cancelled) return 'cancel';
+        text += '\n' + (r && r.data ? r.data.text : '');
       }
-      try { doc.destroy(); } catch (e) {}
-      const parsed = parseReceipt(pages);
-      if (!parsed) { toast('Auf diesem Bon konnte ich keine Artikel erkennen.'); return; }
-      openReceipt(tx, parsed);
-    } catch (e) { toast('Diese PDF kann ich nicht lesen.'); }
+    } catch (e) {
+      if (st.cancelled) return 'cancel';
+      return null;
+    } finally {
+      try { if (st.worker) await st.worker.terminate(); } catch (e) {}
+      ocrState = null;
+      hideDialog($('ocrSheet'));
+    }
+    return parseReceipt(ocrPages(text));
+  }
+
+  async function readReceipt(file, tx) {
+    const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+    const isImg = /^image\//.test(file.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(file.name);
+    if (!isPdf && !isImg) { toast('Das ist weder eine PDF noch ein Foto.'); return; }
+    let parsed = null, viaOcr = false, doc = null;
+    if (isPdf) {
+      let lib;
+      try { lib = await loadPdfJs(); }
+      catch (e) { toast('Der PDF-Leser konnte nicht geladen werden. Öffne die App einmal mit Internet.'); return; }
+      try {
+        doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+        const pages = [];
+        for (let n = 1; n <= doc.numPages && n <= 5; n++) {
+          const pg = await doc.getPage(n);
+          pages.push(pageLines((await pg.getTextContent()).items));
+        }
+        parsed = parseReceipt(pages);
+      } catch (e) { try { if (doc) doc.destroy(); } catch (e2) {} toast('Diese PDF kann ich nicht lesen.'); return; }
+    }
+    if (!parsed) {
+      viaOcr = true;
+      const res = await ocrReceipt(async () => {
+        if (!isPdf) return [await imageCanvas(file)];
+        const list = [];
+        for (let n = 1; n <= doc.numPages && n <= 3; n++) list.push(await pdfPageCanvas(await doc.getPage(n)));
+        return list;
+      });
+      try { if (doc) doc.destroy(); } catch (e) {}
+      if (res === 'cancel') return;
+      parsed = res;
+    } else { try { if (doc) doc.destroy(); } catch (e) {} }
+    if (!parsed) {
+      toast('Ich konnte auf dem Bon nichts Sicheres erkennen. Teile die Zahlung von Hand auf.');
+      openManualSplit(tx);
+      return;
+    }
+    openReceipt(tx, parsed, viaOcr);
+  }
+  // Split by hand: how much was food, and what the rest is
+  let spTx = null;
+  function manualGroups() {
+    const paid = -spTx.a, f = parseUserAmount($('spFood').value);
+    if (!$('spFood').value.trim() || isNaN(f) || f <= 0 || f >= paid) return null;
+    const g = { lebensmittel: f };
+    g[$('spRest').value] = paid - f;
+    return g;
+  }
+  function renderManualSplit() {
+    const paid = -spTx.a, ul = $('spSum'), g = manualGroups(), raw = $('spFood').value.trim();
+    ul.textContent = '';
+    if (g) {
+      Object.keys(g).forEach((id) => {
+        const li = el('li'), row = el('div', 'balrow');
+        row.appendChild(el('span', 'bn', CAT[id].name));
+        row.appendChild(el('span', 'ba num', fmt(g[id])));
+        li.appendChild(row);
+        ul.appendChild(li);
+      });
+    }
+    const err = $('spErr');
+    err.hidden = !raw || !!g;
+    if (!err.hidden) err.textContent = 'Bitte einen Betrag über 0 und unter ' + fmt(paid) + ' eingeben.';
+    $('spApply').disabled = !g;
+  }
+  function openManualSplit(tx) {
+    spTx = tx;
+    $('spIntro').textContent = 'Bezahlt wurden ' + fmt(-tx.a) + '. Wie viel davon war Essen und Trinken?';
+    $('spFood').value = '';
+    const sel = $('spRest');
+    sel.textContent = '';
+    RC_CHOICES.filter((id) => id !== 'lebensmittel').forEach((id) => { const o = el('option', null, CAT[id].name); o.value = id; sel.appendChild(o); });
+    sel.value = 'drogerie';
+    renderManualSplit();
+    showDialog($('splitSheet'));
   }
   let rcState = null;
   const RC_CHOICES = ['lebensmittel', 'drogerie', 'shopping', 'sonstiges'];
-  function openReceipt(tx, parsed) {
+  function openReceipt(tx, parsed, viaOcr) {
     rcState = { tx: tx, items: parsed.items, total: parsed.total };
+    $('rcIntro').textContent = viaOcr
+      ? 'Ich habe den Bon vom Foto gelesen. Prüfe die Artikel, Fehler sind möglich. Tippe auf die Auswahl neben einem Artikel, wenn er nicht stimmt.'
+      : 'Ich habe die Artikel gelesen. Tippe auf die Auswahl neben einem Artikel, wenn er nicht stimmt.';
     const list = $('rcList');
     list.textContent = '';
     parsed.items.forEach((it) => {
@@ -2330,8 +2535,11 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     if (!rcState) return;
     const tx = rcState.tx, groups = receiptGroups();
     hideDialog($('receiptSheet'));
-    const before = JSON.parse(JSON.stringify(S.tx));
     rcState = null;
+    commitSplit(tx, groups);
+  }
+  function commitSplit(tx, groups) {
+    const before = JSON.parse(JSON.stringify(S.tx));
     if (!applySplit(tx, groups)) { toast('Die Aufteilung passt nicht zur Zahlung.'); return; }
     save();
     closeTxSheet();
@@ -3891,6 +4099,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     const isPart = t.s0 != null || !!t.so;
     $('shReceipt').hidden = !(canSplit || isPart);
     $('shReceiptBtn').hidden = !canSplit;
+    $('shManualBtn').hidden = !canSplit;
     $('shUnsplit').hidden = !isPart;
     $('shSplitNote').hidden = !isPart;
     if (isPart) $('shSplitNote').textContent = t.so ? 'Teil eines aufgeteilten Kassenbons.' : 'Aus einem Kassenbon aufgeteilt. Ursprünglich ' + fmt(-t.s0) + '.';
@@ -4462,6 +4671,21 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
   $('receiptInput').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f && sheetTx) readReceipt(f, sheetTx); });
   $('shUnsplit').addEventListener('click', () => { const t = sheetTx; if (!t) return; unsplit(t); save(); closeTxSheet(); render(); toast('Aufteilung aufgehoben'); });
   $('rcApply').addEventListener('click', confirmReceipt);
+  $('shManualBtn').addEventListener('click', () => { if (sheetTx) openManualSplit(sheetTx); });
+  $('spFood').addEventListener('input', renderManualSplit);
+  $('spRest').addEventListener('change', renderManualSplit);
+  $('spCancel').addEventListener('click', () => { spTx = null; hideDialog($('splitSheet')); });
+  $('spApply').addEventListener('click', () => {
+    if (!spTx) return;
+    const g = manualGroups();
+    if (!g) return;
+    const tx = spTx;
+    spTx = null;
+    hideDialog($('splitSheet'));
+    commitSplit(tx, g);
+  });
+  $('ocCancel').addEventListener('click', () => { if (ocrState) { ocrState.cancelled = true; try { if (ocrState.worker) ocrState.worker.terminate(); } catch (e) {} } hideDialog($('ocrSheet')); });
+  $('ocrSheet').addEventListener('cancel', (e) => e.preventDefault());
   $('rcCancel').addEventListener('click', () => { rcState = null; hideDialog($('receiptSheet')); });
   $('shDelete').addEventListener('click', deleteSheetTx);
   $('shEditSave').addEventListener('click', saveHandEdit);
