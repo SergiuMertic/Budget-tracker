@@ -462,7 +462,23 @@ dialog.sheet[open] { animation: rise 0.22s ease-out; }
 .textbtn { height: 44px; font-weight: 600; font-size: 15px; }
 /* Simple overview: only the essentials. The full view is one tap away ("Mehr anzeigen"). */
 body.simple .adv { display: none !important; }
-#densityBtn { width: 100%; color: var(--muted); }
+#densityBtn, #shareBtn { width: 100%; color: var(--muted); }
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 15px; line-height: 1.4; color: var(--muted); }
+.steps b { color: var(--ink); font-weight: 600; }
+details.guide { margin-top: 4px; }
+details.guide summary { cursor: pointer; font-weight: 600; font-size: 15px; padding: 8px 0; }
+.goal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.goal-list button.goal { display: grid; gap: 6px; width: 100%; text-align: left; }
+.goal-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.goal-top .gname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goal-bar { height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.goal-bar i { display: block; height: 100%; background: var(--save-bar); border-radius: 4px; }
+.goal-sub { font-size: 14px; color: var(--muted); }
+.rc-list { list-style: none; margin: 0; padding: 0; display: grid; max-height: 38vh; overflow: auto; border-top: 1px solid var(--line); }
+.rc-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.rc-list .rn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.rc-list .ra { font-weight: 600; text-align: right; }
+.rc-list select { grid-column: 1 / -1; width: 100%; height: 36px; border-radius: 10px; border: 1px solid var(--well-line); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 14px; padding: 0 8px; }
 body.simple .hero-month { padding-top: 0; border-top: 0; }
 #overviewMain { padding-bottom: 84px; }
 /* Headline: the one question people ask - how much can I still spend? */
@@ -522,8 +538,13 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
   <!-- Overview -->
   <section class="view" id="view-overview" role="tabpanel" aria-labelledby="tab-overview">
     <div class="card welcome" id="welcome" hidden>
-      <h2>Lade deine Kontoauszüge</h2>
-      <p class="card-text">Wähle deine PDF-Kontoauszüge der C24 Bank oder eine CSV-Datei aus dem Online-Banking. Die App sortiert die Umsätze in Kategorien und zeigt dir, wohin dein Geld geht.</p>
+      <h2>Willkommen</h2>
+      <ol class="steps">
+        <li><b>Kontoauszug laden.</b> Eine PDF der C24 Bank oder eine CSV-Datei aus dem Online-Banking.</li>
+        <li><b>Budgets vorschlagen lassen.</b> Ich rechne sie aus deinen letzten Monaten aus.</li>
+        <li><b>Barzahlungen eintragen.</b> Mit dem Knopf „Ausgabe“ unten rechts, in wenigen Sekunden.</li>
+      </ol>
+      <p class="card-text">Alles bleibt auf diesem Gerät. Die App sortiert die Umsätze in Kategorien und zeigt dir, wohin dein Geld geht.</p>
       <button type="button" class="primary" data-action="pick-csv">Kontoauszug auswählen</button>
       <button type="button" class="textbtn" data-action="add-tx">Oder einen Umsatz von Hand eintragen</button>
     </div>
@@ -581,6 +602,18 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
           </div>
         </div>
 
+        <section class="card" id="cardsCard" aria-labelledby="cardsTitle" hidden>
+          <div class="section-head"><h2 id="cardsTitle">Kreditkarten</h2><span class="num" id="cardsTotal"></span></div>
+          <ul class="ballist" id="cardsList"></ul>
+          <p class="card-text" id="cardsNote"></p>
+        </section>
+
+        <section class="card" id="budgetOffer" aria-label="Budgets vorschlagen" hidden>
+          <h2>Budgets vorschlagen?</h2>
+          <p class="card-text">Du hast noch keine Budgets. Ich kann sie aus deinen letzten Monaten ausrechnen, du passt sie danach an.</p>
+          <button type="button" class="secondary" id="budgetOfferBtn">Budgets vorschlagen</button>
+        </section>
+
         <section class="card adv" id="insightCard" aria-label="Auffälligkeiten" hidden>
           <ul class="insights" id="insightList"></ul>
         </section>
@@ -612,6 +645,12 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
             Barzahlung oder Umsatz von Hand
           </button>
         </section>
+
+        <button type="button" class="hint" id="importHint" hidden>
+          <span class="dot" aria-hidden="true"></span>
+          <span id="importHintText">Zeit für einen Import</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
 
         <button type="button" class="hint" id="openHint" hidden>
           <span class="dot" aria-hidden="true"></span>
@@ -647,11 +686,17 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
           </div>
         </div>
 
+        <section class="card" id="goalsOverview" aria-labelledby="goalsOvTitle" hidden>
+          <div class="section-head"><h2 id="goalsOvTitle">Sparziele</h2></div>
+          <ul class="goal-list" id="goalsOvList"></ul>
+        </section>
+
         <button type="button" class="hint" id="backupHint" hidden>
           <span class="dot" aria-hidden="true"></span>
           <span id="backupHintText">Backup fehlt</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </button>
+        <button type="button" class="textbtn" id="shareBtn">Stand teilen</button>
         <button type="button" class="textbtn" id="densityBtn" aria-pressed="false">Mehr anzeigen</button>
         <button type="button" class="fab" id="addFab" data-action="add-tx" aria-label="Ausgabe von Hand eintragen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -706,6 +751,12 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       <div class="hero-big num" id="budgetTotal">0 €</div>
       <div class="hero-meta num" id="budgetMeta"></div>
     </div>
+    <section class="card payday-card" id="goalsCard" aria-labelledby="goalsTitle">
+      <div class="section-head"><h2 id="goalsTitle">Sparziele</h2><span class="num" id="goalsTotal"></span></div>
+      <p class="card-text" id="goalsHelp">Lege ein Ziel fest, zum Beispiel Urlaub oder eine Reserve. Ich rechne aus, wie viel du pro Monat zurücklegen solltest.</p>
+      <ul class="goal-list" id="goalsList"></ul>
+      <button type="button" class="secondary" id="goalAdd">Sparziel hinzufügen</button>
+    </section>
     <section class="card payday-card" id="expCard" aria-labelledby="expTitle">
       <div class="section-head"><h2 id="expTitle">Erwartetes Einkommen</h2><span class="num" id="expTotal"></span></div>
       <p class="card-text" id="expHelp">Trage Gehalt oder Extras ein, die noch kommen, zum Beispiel das Gehalt deiner Partnerin oder Weihnachtsgeld. Sie zählen in „Danach übrig“.</p>
@@ -763,6 +814,16 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       <button type="button" class="primary" data-action="pick-csv" id="pickBtn">Kontoauszug oder CSV auswählen</button>
       <input type="file" id="csvInput" class="sr-only" multiple accept=".pdf,.PDF,application/pdf,.csv,.CSV,.txt,text/csv,text/comma-separated-values,text/plain,application/vnd.ms-excel" tabindex="-1" aria-hidden="true">
       <p class="card-msg" id="importMsg" role="status" hidden></p>
+      <details class="guide" id="importGuide">
+        <summary>So kommst du an deine Daten</summary>
+        <ol class="steps">
+          <li><b>C24 Bank:</b> den Kontoauszug als PDF laden (in der App unter den Dokumenten des Kontos). Mehrere Monate kannst du auf einmal auswählen.</li>
+          <li><b>Sparkasse und andere Banken:</b> im Online-Banking bei den Umsätzen auf Export gehen und CSV wählen. Zeitraum möglichst ab dem 1. des ersten Monats.</li>
+          <li><b>American Express:</b> im Online-Konto die Umsätze als CSV herunterladen. Danach unter Kontostand den Abbuchungstag der Karte eintragen (bei dir der 7.).</li>
+          <li><b>Mac öffnet die Datei in Numbers?</b> Nicht öffnen, sondern direkt hier auswählen oder sie auf das Handy schicken.</li>
+          <li><b>Einkauf mit Kassenbon:</b> Zahlung unter Umsätze antippen und „Kassenbon aufteilen“ wählen, dann siehst du Essen getrennt vom Rest.</li>
+        </ol>
+      </details>
     </div>
 
     <div class="card" id="previewCard" hidden>
@@ -866,10 +927,50 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       <p class="card-msg danger" id="shEditErr" hidden></p>
       <button type="button" class="secondary" id="shEditSave">Änderung speichern</button>
     </div>
+    <div id="shReceipt" hidden>
+      <p class="sh-link" id="shSplitNote" hidden></p>
+      <button type="button" class="secondary" id="shReceiptBtn">Kassenbon (PDF) aufteilen</button>
+      <button type="button" class="textbtn" id="shUnsplit" hidden>Aufteilung aufheben</button>
+      <input type="file" id="receiptInput" class="sr-only" accept=".pdf,.PDF,application/pdf">
+    </div>
     <label class="check"><input type="checkbox" id="shRule"> <span>Immer so zuordnen, wenn dieser Text im Umsatz steht:</span></label>
     <input type="text" class="field" id="shRuleKw" maxlength="40" aria-label="Text für die Regel" autocomplete="off">
     <button type="button" class="primary" id="shDone">Fertig</button>
     <button type="button" class="textbtn danger" id="shDelete">Umsatz löschen</button>
+  </div>
+</dialog>
+
+<!-- Savings goal -->
+<dialog class="sheet" id="goalSheet" aria-labelledby="gsTitle">
+  <form class="sheet-in" id="goalForm" method="dialog" novalidate>
+    <div class="grab" aria-hidden="true"></div>
+    <h2 id="gsTitle">Sparziel</h2>
+    <label class="lbl">Wofür?
+      <input type="text" class="field" id="gsName" maxlength="40" placeholder="z. B. Urlaub, Reserve" autocomplete="off">
+    </label>
+    <div class="filters">
+      <label class="lbl">Ziel <span class="money"><input type="text" inputmode="decimal" class="field num" id="gsTarget" placeholder="0" autocomplete="off"><span>€</span></span></label>
+      <label class="lbl">Schon gespart <span class="money"><input type="text" inputmode="decimal" class="field num" id="gsSaved" placeholder="0" autocomplete="off"><span>€</span></span></label>
+    </div>
+    <label class="lbl">Bis wann (optional) <input type="date" class="field" id="gsDate"></label>
+    <p class="card-msg danger" id="gsErr" hidden></p>
+    <button type="button" class="primary" id="gsSave">Speichern</button>
+    <button type="button" class="textbtn" id="gsCancel">Abbrechen</button>
+    <button type="button" class="textbtn danger" id="gsDelete" hidden>Sparziel löschen</button>
+  </form>
+</dialog>
+
+<!-- Receipt: split one payment into food and other things -->
+<dialog class="sheet" id="receiptSheet" aria-labelledby="rcTitle">
+  <div class="sheet-in">
+    <div class="grab" aria-hidden="true"></div>
+    <h2 id="rcTitle">Kassenbon</h2>
+    <p class="card-text" id="rcIntro">Ich habe die Artikel gelesen. Tippe auf die Auswahl neben einem Artikel, wenn er nicht stimmt.</p>
+    <ul class="ballist" id="rcSum"></ul>
+    <p class="sh-link" id="rcNote" hidden></p>
+    <ul class="rc-list" id="rcList"></ul>
+    <button type="button" class="primary" id="rcApply">Aufteilen</button>
+    <button type="button" class="textbtn" id="rcCancel">Abbrechen</button>
   </div>
 </dialog>
 
@@ -886,7 +987,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       <span class="money"><input type="text" inputmode="decimal" class="field" id="addAmt" placeholder="0,00" autocomplete="off"><span>€</span></span>
     </label>
     <label class="lbl">Beschreibung
-      <input type="text" class="field" id="addName" maxlength="80" placeholder="z. B. Bäcker, Trinkgeld" autocomplete="off">
+      <input type="text" class="field" id="addName" maxlength="80" placeholder="z. B. Bäcker, Trinkgeld" autocomplete="off" list="addNameList"><datalist id="addNameList"></datalist>
     </label>
     <div class="filters">
       <label class="lbl">Datum <input type="date" class="field" id="addDate"></label>
@@ -962,7 +1063,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '33';
+  const APP_VERSION = '35';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -1287,6 +1388,8 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       seen[id] = true;
       const tx = { id: id, d: t.d, a: a, n: clip(t.n, 80), p: clip(t.p, 240), t: clip(t.t, 40), acc: clip(t.acc, 40) || 'Konto', c: known[t.c] ? t.c : '', src: /^[mrfut]$/.test(t.src) ? t.src : 'r', k: typeof t.k === 'string' ? t.k.slice(0, 200) : '' };
       if (typeof t.l === 'string' && t.l) tx.l = t.l.slice(0, 40);
+      if (Number.isInteger(t.s0) && t.s0 < 0) tx.s0 = t.s0;
+      if (typeof t.so === 'string' && t.so) tx.so = t.so.slice(0, 40);
       if (!tx.k) tx.k = dupKey(tx.acc, tx);
       out.tx.push(tx);
     });
@@ -1314,6 +1417,14 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       out.opts.payday = raw.opts.payday === true;
       out.opts.cashSince = /^\d{4}-\d{2}-\d{2}$/.test(raw.opts.cashSince) ? raw.opts.cashSince : '';
       out.opts.household = raw.opts.household === true;
+      if (Array.isArray(raw.opts.goals)) {
+        out.opts.goals = [];
+        raw.opts.goals.slice(0, 12).forEach((g) => {
+          const a = Math.round(Number(g && g.a)), sv = Math.round(Number(g && g.s) || 0);
+          if (!g || !isFinite(a) || a <= 0 || a > 1e10 || !isFinite(sv) || sv < 0 || sv > 1e10) return;
+          out.opts.goals.push({ id: typeof g.id === 'string' && g.id ? g.id.slice(0, 40) : newId(), n: clip(g.n, 40) || 'Sparziel', a: a, s: sv, d: /^\d{4}-\d{2}-\d{2}$/.test(g.d) ? g.d : '' });
+        });
+      }
       if (typeof raw.opts.simple === 'boolean') out.opts.simple = raw.opts.simple;
       if (Array.isArray(raw.opts.expected)) raw.opts.expected.slice(0, 20).forEach((x) => {
         const a = Math.round(Number(x && x.a));
@@ -2089,6 +2200,248 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     return { a: a, d: last };
   }
 
+  /* ---------- Receipts (Kassenbon as PDF) ----------
+     One card payment at a supermarket often holds food and other things. The receipt PDF is read on this device,
+     every article gets a category (food, drugstore, household), and the payment is split into one entry per category. */
+  const rcWords = (list) => new RegExp('(?:^|[^A-Z0-9])(?:' + list.map(esc).join('|') + ')');
+  const RC_DROGERIE = rcWords(['ZAHNPASTA', 'ZAHNBUERSTE', 'ZAHNSEIDE', 'MUNDSPUELUNG', 'SHAMPOO', 'DUSCH', 'DEO', 'SEIFE', 'WINDEL', 'FEUCHTTUECHER', 'TAMPON', 'DAMENBINDEN', 'SLIPEINLAGEN', 'TOILETTENPAPIER', 'KLOPAPIER', 'TOILETTENP', 'TASCHENTUECHER', 'KOSMETIKTUECHER', 'KUECHENROLLE', 'KUECHENTUCH', 'SPUELMITTEL', 'SPUELMASCHINEN', 'TABS', 'WASCHMITTEL', 'WEICHSPUELER', 'REINIGER', 'ENTKALKER', 'MUELLBEUTEL', 'MUELLSAECKE', 'GEFRIERBEUTEL', 'ALUFOLIE', 'BACKPAPIER', 'FRISCHHALTEFOLIE', 'PFLASTER', 'MULTIVITAMIN', 'HANDCREME', 'GESICHTSCREME', 'KOERPERLOTION', 'BODYLOTION', 'SONNENCREME', 'RASIER', 'HAARSPRAY', 'HAARFARBE', 'WATTEPADS', 'WATTE', 'ZAHNCREME', 'LIPPENPFLEGE', 'KONDOME', 'SCHWAMM', 'SPUELBUERSTE']);
+  const RC_SHOP = rcWords(['BATTERIE', 'BATTERIEN', 'GLUEHBIRNE', 'LAMPE', 'KERZE', 'KERZEN', 'BLUMEN', 'PFLANZE', 'TRAGETASCHE', 'TRAGETUETE', 'PAPIERTASCHE', 'SOCKEN', 'STRUMPFHOSE', 'SPIELZEUG', 'ZEITSCHRIFT', 'ZEITUNG', 'HUNDEFUTTER', 'KATZENFUTTER', 'KATZENSTREU', 'TIERNAHRUNG', 'GESCHENK', 'GRUSSKARTE', 'GRUESSKARTE', 'TASSE', 'BECHER', 'TOPF', 'PFANNE']);
+  function receiptClass(name) {
+    const n = normText(name);
+    if (RC_DROGERIE.test(n)) return 'drogerie';
+    if (RC_SHOP.test(n)) return 'shopping';
+    return 'lebensmittel';
+  }
+  // Pages (from pageLines) -> { items: [{ n, a (cents), c }], total (cents or null) }, or null when nothing looks like a receipt
+  function parseReceipt(pages) {
+    const lines = [];
+    pages.forEach((rows) => rows.forEach((r) => { if (r.text) lines.push(r.text); }));
+    const PRICE = /^(.*?)\s+(-?\d{1,4}(?:\.\d{3})*,\d{2})\s*(?:EUR|€)?\s*(?:[A-Z*]|\d)?$/;
+    const TOTAL = /^(?:SUMME|GESAMTSUMME|GESAMT|ZU ZAHLEN|ZAHLBETRAG|TOTAL)\b[^0-9-]*(-?\d{1,4}(?:\.\d{3})*,\d{2})\s*(?:EUR|€)?$/i;
+    const SKIP = /^(?:EUR|SUMME|GESAMT|BAR|EC|KARTE|KREDITKARTE|MASTERCARD|VISA|GIROCARD|DEBIT|RUECKGELD|GEGEBEN|MWST|NETTO|BRUTTO|STEUER|SUBTOTAL|TOTAL|PAYBACK|BETRAG|ZAHLUNG|KARTENZAHLUNG|ANZAHL|BON|TSE|TRANSAKTION|ZWISCHENSUMME)\b/;
+    const items = [];
+    let total = null;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const t = line.match(TOTAL);
+      if (t) { total = eurCents('+', t[1]); break; }
+      const m = line.match(PRICE);
+      if (!m) continue;
+      const rawName = m[1].trim();
+      if (!rawName || /%/.test(rawName) || /^\d+\s*(?:stk|st\.?|x|×)\b/i.test(rawName) || /\bx$/i.test(rawName)) continue;
+      const norm = normText(rawName);
+      if (!norm || SKIP.test(norm)) continue;
+      const cents = eurCents(m[2][0] === '-' ? '-' : '+', m[2].replace('-', ''));
+      const deposit = /PFAND|LEERGUT|EINWEG/.test(norm);
+      if ((cents < 0 || /RABATT|PREISVORTEIL|COUPON|NACHLASS|GUTSCHEIN/.test(norm)) && !deposit) {
+        if (items.length) items[items.length - 1].a += cents;
+        continue;
+      }
+      items.push({ n: clip(rawName, 60), a: cents, c: deposit ? 'lebensmittel' : receiptClass(rawName) });
+    }
+    const real = items.filter((it) => it.a !== 0);
+    return real.length ? { items: real, total: total } : null;
+  }
+  // Split one payment into several entries, one per category. The largest category stays on the original entry,
+  // so the key of the bank entry (and with it a repeated import) stays the same. groups: { categoryId: cents > 0 }
+  function applySplit(tx, groups) {
+    const paid = -tx.a;
+    const cats = Object.keys(groups).filter((c) => groups[c] > 0 && CAT[c]).sort((a, b) => groups[b] - groups[a]);
+    if (!cats.length || paid <= 0) return false;
+    const kids = cats.slice(1);
+    const kidSum = kids.reduce((m, c) => m + groups[c], 0);
+    if (kidSum >= paid) return false;
+    if (kids.length) { tx.s0 = tx.a; tx.a = -(paid - kidSum); }
+    tx.c = cats[0];
+    tx.src = 'm';
+    kids.forEach((c) => {
+      S.tx.push({ id: newId(), d: tx.d, a: -groups[c], n: tx.n, p: tx.p, t: 'Kassenbon', acc: tx.acc, c: c, src: 'm', k: 'split|' + tx.id + '|' + c, so: tx.id });
+    });
+    return true;
+  }
+  function unsplit(tx) {
+    if (tx.so) { const parent = S.tx.filter((x) => x.id === tx.so)[0]; if (parent) unsplit(parent); else S.tx = S.tx.filter((x) => x !== tx); return; }
+    S.tx = S.tx.filter((x) => x.so !== tx.id);
+    if (tx.s0 != null) { tx.a = tx.s0; delete tx.s0; }
+    const cat = categorize(tx);
+    tx.c = cat[0]; tx.src = cat[1];
+  }
+  async function readReceipt(file, tx) {
+    let lib;
+    try { lib = await loadPdfJs(); }
+    catch (e) { toast('Der PDF-Leser konnte nicht geladen werden. Öffne die App einmal mit Internet.'); return; }
+    try {
+      const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+      const pages = [];
+      for (let n = 1; n <= doc.numPages && n <= 5; n++) {
+        const pg = await doc.getPage(n);
+        pages.push(pageLines((await pg.getTextContent()).items));
+      }
+      try { doc.destroy(); } catch (e) {}
+      const parsed = parseReceipt(pages);
+      if (!parsed) { toast('Auf diesem Bon konnte ich keine Artikel erkennen.'); return; }
+      openReceipt(tx, parsed);
+    } catch (e) { toast('Diese PDF kann ich nicht lesen.'); }
+  }
+  let rcState = null;
+  const RC_CHOICES = ['lebensmittel', 'drogerie', 'shopping', 'sonstiges'];
+  function openReceipt(tx, parsed) {
+    rcState = { tx: tx, items: parsed.items, total: parsed.total };
+    const list = $('rcList');
+    list.textContent = '';
+    parsed.items.forEach((it) => {
+      const li = el('li');
+      li.appendChild(el('span', 'rn', it.n));
+      li.appendChild(el('span', 'ra num', fmt(it.a)));
+      const sel = el('select');
+      sel.setAttribute('aria-label', 'Kategorie für ' + it.n);
+      RC_CHOICES.forEach((id) => { const o = el('option', null, CAT[id].name); o.value = id; if (id === it.c) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', () => { it.c = sel.value; renderReceiptSummary(); });
+      li.appendChild(sel);
+      list.appendChild(li);
+    });
+    renderReceiptSummary();
+    showDialog($('receiptSheet'));
+  }
+  function receiptGroups() {
+    const groups = {};
+    rcState.items.forEach((it) => { groups[it.c] = (groups[it.c] || 0) + it.a; });
+    return groups;
+  }
+  function renderReceiptSummary() {
+    const groups = receiptGroups(), paid = -rcState.tx.a, ul = $('rcSum');
+    ul.textContent = '';
+    const sum = rcState.items.reduce((m, it) => m + it.a, 0);
+    RC_CHOICES.filter((id) => groups[id]).forEach((id) => {
+      const li = el('li'), row = el('div', 'balrow');
+      row.appendChild(el('span', 'bn', CAT[id].name));
+      row.appendChild(el('span', 'ba num', fmt(groups[id])));
+      li.appendChild(row);
+      ul.appendChild(li);
+    });
+    const note = $('rcNote');
+    const diff = paid - sum;
+    note.hidden = Math.abs(diff) <= 1;
+    if (!note.hidden) note.textContent = 'Die Artikel ergeben ' + fmt(sum) + ', bezahlt wurden ' + fmt(paid) + '. Der Unterschied von ' + fmt(Math.abs(diff)) + ' bleibt in der größten Kategorie.';
+    const others = Object.keys(groups).sort((a, b) => groups[b] - groups[a]).slice(1).reduce((m, c) => m + groups[c], 0);
+    $('rcApply').disabled = others >= paid;
+  }
+  function confirmReceipt() {
+    if (!rcState) return;
+    const tx = rcState.tx, groups = receiptGroups();
+    hideDialog($('receiptSheet'));
+    const before = JSON.parse(JSON.stringify(S.tx));
+    rcState = null;
+    if (!applySplit(tx, groups)) { toast('Die Aufteilung passt nicht zur Zahlung.'); return; }
+    save();
+    closeTxSheet();
+    render();
+    toast('Zahlung aufgeteilt', 'Rückgängig', () => { S.tx = before; save(); render(); });
+  }
+
+  /* ---------- Savings goals ----------
+     { id, n: name, a: target in cents, s: saved so far in cents, d: 'YYYY-MM-DD' or '' } in S.opts.goals */
+  const goalsOf = () => (Array.isArray(S.opts.goals) ? S.opts.goals : []);
+  function monthsUntil(d) {
+    const t = today();
+    return Math.max(1, (Number(d.slice(0, 4)) - Number(t.slice(0, 4))) * 12 + Number(d.slice(5, 7)) - Number(t.slice(5, 7)));
+  }
+  function goalSub(g) {
+    const need = Math.max(0, g.a - g.s);
+    if (!need) return 'Ziel erreicht';
+    let t = 'noch ' + fmt0(need);
+    if (g.d) {
+      if (g.d < today()) return t + ' · Termin vorbei';
+      t += ' bis ' + fDate.format(fromISO(g.d)) + ' · etwa ' + fmt0(Math.ceil(need / monthsUntil(g.d))) + ' pro Monat';
+    }
+    return t;
+  }
+  function goalRow(g) {
+    const li = el('li'), b = el('button', 'goal');
+    b.type = 'button';
+    const top = el('span', 'goal-top');
+    top.appendChild(el('span', 'gname', g.n));
+    top.appendChild(el('span', 'num', fmt0(g.s) + ' von ' + fmt0(g.a)));
+    b.appendChild(top);
+    const bar = el('span', 'goal-bar'), fill = el('i');
+    fill.style.width = Math.min(100, Math.max(0, g.a ? g.s / g.a * 100 : 0)) + '%';
+    bar.appendChild(fill);
+    b.appendChild(bar);
+    b.appendChild(el('span', 'goal-sub num', goalSub(g)));
+    b.addEventListener('click', () => openGoal(g.id));
+    li.appendChild(b);
+    return li;
+  }
+  function renderGoals() {
+    const goals = goalsOf();
+    const list = $('goalsList'), ov = $('goalsOvList');
+    list.textContent = ''; ov.textContent = '';
+    goals.forEach((g) => { list.appendChild(goalRow(g)); ov.appendChild(goalRow(g)); });
+    $('goalsOverview').hidden = !goals.length;
+    $('goalsHelp').hidden = !!goals.length;
+    const need = goals.reduce((m, g) => m + (g.d && g.d >= today() ? Math.ceil(Math.max(0, g.a - g.s) / monthsUntil(g.d)) : 0), 0);
+    $('goalsTotal').textContent = need ? fmt0(need) + ' pro Monat' : '';
+  }
+  let goalEditing = null;
+  function openGoal(id) {
+    goalEditing = id || null;
+    const g = id ? goalsOf().filter((x) => x.id === id)[0] : null;
+    $('gsTitle').textContent = g ? 'Sparziel ändern' : 'Neues Sparziel';
+    $('gsName').value = g ? g.n : '';
+    $('gsTarget').value = g ? String(g.a / 100).replace('.', ',') : '';
+    $('gsSaved').value = g && g.s ? String(g.s / 100).replace('.', ',') : '';
+    $('gsDate').value = g ? g.d : '';
+    $('gsErr').hidden = true;
+    $('gsDelete').hidden = !g;
+    showDialog($('goalSheet'));
+  }
+  function saveGoal() {
+    const name = clip($('gsName').value, 40);
+    const a = parseUserAmount($('gsTarget').value);
+    const sv = $('gsSaved').value.trim() === '' ? 0 : parseUserAmount($('gsSaved').value);
+    const d = /^\d{4}-\d{2}-\d{2}$/.test($('gsDate').value) ? $('gsDate').value : '';
+    const err = (m) => { $('gsErr').textContent = m; $('gsErr').hidden = false; };
+    if (!name) return err('Bitte einen Namen eingeben.');
+    if (!isFinite(a) || a <= 0) return err('Bitte ein Ziel wie 1500 eingeben.');
+    if (!isFinite(sv) || sv < 0) return err('Bitte einen Betrag wie 200 oder 0 eingeben.');
+    if (!Array.isArray(S.opts.goals)) S.opts.goals = [];
+    const cur = goalEditing && S.opts.goals.filter((x) => x.id === goalEditing)[0];
+    if (cur) { cur.n = name; cur.a = a; cur.s = sv; cur.d = d; }
+    else if (S.opts.goals.length >= 12) return err('Mehr als 12 Sparziele sind nicht möglich.');
+    else S.opts.goals.push({ id: newId(), n: name, a: a, s: sv, d: d });
+    hideDialog($('goalSheet'));
+    save(); render();
+  }
+  function deleteGoal() {
+    if (!goalEditing) return;
+    const gone = goalsOf().filter((x) => x.id === goalEditing)[0];
+    S.opts.goals = goalsOf().filter((x) => x.id !== goalEditing);
+    hideDialog($('goalSheet'));
+    save(); render();
+    toast('Sparziel gelöscht', 'Rückgängig', () => { S.opts.goals.push(gone); save(); render(); });
+  }
+
+  /* ---------- Share a short summary ---------- */
+  const snap = { free: null, daysLeft: 0, payday: '', account: null, owed: 0, left: 0, month: '', over: [] };
+  function summaryText() {
+    const lines = ['Budget, Stand ' + fDate.format(fromISO(today())) + ':'];
+    if (snap.free != null && snap.payday) lines.push('Bis zum ' + fDate.format(fromISO(snap.payday)) + ' zum Ausgeben: ' + fmt(snap.free) + (snap.free > 0 && snap.daysLeft >= 1 ? ' (etwa ' + fmt0(snap.free / snap.daysLeft) + ' pro Tag)' : ''));
+    if (snap.account != null) lines.push('Auf dem Konto: ' + fmt(snap.account));
+    if (snap.owed) lines.push('Kreditkarten noch zu zahlen: ' + fmt(snap.owed));
+    lines.push((snap.left < 0 ? 'Minus im ' : 'Übrig im ') + snap.month + ': ' + fmt(Math.abs(snap.left)));
+    if (snap.over.length) lines.push('Über Budget: ' + snap.over.join(', '));
+    goalsOf().forEach((g) => lines.push('Sparziel ' + g.n + ': ' + fmt0(g.s) + ' von ' + fmt0(g.a)));
+    return lines.join('\n');
+  }
+  async function shareSummary() {
+    const text = summaryText();
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Budget', text: text }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text); toast('Zusammenfassung kopiert. Jetzt einfügen und senden.'); }
+    catch (e) { toast('Teilen ist auf diesem Gerät nicht möglich.'); }
+  }
+
   /* ---------- Toast ---------- */
   let toastTimer = 0;
   function toast(msg, actionLabel, action) {
@@ -2174,8 +2527,11 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
 
     const prevStats = monthStats(shiftMonth(S.month, -1));
     $('openHint').hidden = !st.open;
+    renderImportHint();
     $('openHintText').textContent = txWord(st.open);
     renderBalances();
+    renderCards(available);
+    $('budgetOffer').hidden = !(st.count && !Object.keys(S.budgets).length && averages().n);
 
     // Spending categories
     const rows = CATS.filter((c) => c.kind === 'out' || c.kind === 'save').map((c) => {
@@ -2185,7 +2541,10 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     rows.sort((a, b) => (b.spent - a.spent) || (b.budget - a.budget));
     renderDonut(rows);
     renderInsights(rows, prevStats);
+    snap.left = left; snap.month = monthName;
+    snap.over = rows.filter((r) => r.c.kind === 'out' && r.budget && r.spent > r.budget).map((r) => r.c.name);
     renderNow(available, rows);
+    renderGoals();
     const maxSpent = rows.reduce((m, r) => Math.max(m, r.spent), 1);
     const list = $('catList');
     list.textContent = '';
@@ -2538,6 +2897,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     status.hidden = true; status.className = 'now-status'; act.hidden = true;
     big.classList.remove('neg');
     const info = paydayInfo;
+    snap.free = info.free; snap.payday = info.payday || ''; snap.daysLeft = info.daysLeft; snap.account = available.n ? available.sum : null;
     const accs = accounts();
     if (!available.n) {
       $('nowLabel').textContent = 'Auf dem Konto';
@@ -2641,6 +3001,39 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       warning.textContent = 'Für ' + missing.account + ' fehlt ein aktueller Kontostand. Die Deckung der Abbuchung ist nicht prüfbar.';
       warning.hidden = false;
     }
+  }
+  // Credit cards: what is still to pay on each, and when it is taken from the account
+  function renderCards(available) {
+    const card = $('cardsCard'), ul = $('cardsList');
+    ul.textContent = '';
+    const cards = accounts().filter((a) => isCardAcc(a.name) && (S.opts.household || !isPartnerAcc(a.name)) && (S.bal[a.name] || a.n));
+    card.hidden = !cards.length;
+    if (!cards.length) { snap.owed = 0; return; }
+    let owed = 0, unknown = 0;
+    cards.forEach((a) => {
+      const b = balanceOf(a.name);
+      const btn = el('button', 'balrow');
+      btn.type = 'button';
+      btn.appendChild(el('span', 'bn', a.name));
+      const open = b ? Math.max(0, -b.a) : 0;
+      btn.appendChild(el('span', 'ba num' + (open > 0 ? ' neg' : ''), b ? (b.a > 0 ? fmt(b.a) + ' Guthaben' : fmt(open)) : '–'));
+      const payDay = S.opts.cardPaymentDays[a.name];
+      let sub = '';
+      if (!b) { sub = 'Kontostand eintragen'; unknown++; }
+      else {
+        sub = open > 0 ? 'noch zu zahlen' : 'nichts offen';
+        if (payDay) { let d = dateInMonth(thisMonth(), payDay); if (d <= today()) d = dateInMonth(shiftMonth(thisMonth(), 1), payDay); sub += ' · wird am ' + fDate.format(fromISO(d)) + ' abgebucht'; }
+        owed += open;
+      }
+      btn.appendChild(el('span', 'bs num' + (b ? '' : ' set'), sub));
+      btn.addEventListener('click', () => openBal(a.name));
+      const li = el('li'); li.appendChild(btn); ul.appendChild(li);
+    });
+    $('cardsTotal').textContent = owed && cards.length > 1 ? fmt(owed) : '';
+    snap.owed = owed;
+    const note = $('cardsNote');
+    note.hidden = !(owed && available && available.n);
+    if (!note.hidden) note.textContent = 'Nach der Zahlung bleiben auf deinen Konten ' + fmt(available.sum - owed) + '.';
   }
   function renderBalances() {
     const ul = $('balList');
@@ -3494,6 +3887,13 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       $('shEditAcc').value = t.acc;
       $('shEditErr').hidden = true;
     }
+    const canSplit = t.a < 0 && !t.l && !t.so && !(t.t === 'Von Hand' && t.src === 'm') && t.c !== 'umbuchung';
+    const isPart = t.s0 != null || !!t.so;
+    $('shReceipt').hidden = !(canSplit || isPart);
+    $('shReceiptBtn').hidden = !canSplit;
+    $('shUnsplit').hidden = !isPart;
+    $('shSplitNote').hidden = !isPart;
+    if (isPart) $('shSplitNote').textContent = t.so ? 'Teil eines aufgeteilten Kassenbons.' : 'Aus einem Kassenbon aufgeteilt. Ursprünglich ' + fmt(-t.s0) + '.';
     const other = partnerOf(t);
     $('shLink').hidden = !other;
     if (other) $('shLink').textContent = 'Umbuchung zwischen deinen Konten, zählt nicht als Ausgabe oder Einnahme. Gegenbuchung: ' + other.acc + ', ' + fDayShort.format(fromISO(other.d)) + ', ' + fmtS(other.a) + '. Wählst du eine andere Kategorie, wird die Verknüpfung gelöst.';
@@ -3577,6 +3977,14 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
   function deleteSheetTx() {
     const t = sheetTx;
     if (!t) return;
+    if (t.so || t.s0 != null) {
+      hideDialog($('txSheet'));
+      sheetTx = null;
+      unsplit(t);
+      save(); render();
+      toast('Aufteilung aufgehoben');
+      return;
+    }
     hideDialog($('txSheet'));
     sheetTx = null;
     const idx = S.tx.indexOf(t);
@@ -3598,6 +4006,8 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
   function openAdd() {
     addKind = 'out';
     addCatTouched = false;
+    addAccTouched = false;
+    fillAddNames();
     $('addAmt').value = '';
     $('addName').value = '';
     const t = today();
@@ -3624,8 +4034,25 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     const name = $('addName').value.trim();
     const sel = $('addCat');
     const fallback = addKind === 'in' ? 'einnahmen' : 'sonstiges';
-    const c = name ? categorize({ n: name, p: '', t: '', a: addKind === 'in' ? 1 : -1 })[0] : fallback;
+    const seen = name ? previousHandEntry(name) : null;
+    const c = seen ? seen.c : name ? categorize({ n: name, p: '', t: '', a: addKind === 'in' ? 1 : -1 })[0] : fallback;
     sel.value = Array.prototype.some.call(sel.options, (o) => o.value === c) ? c : fallback;
+    // Same description as an earlier entry: take over its card too, unless one was chosen in this sheet
+    if (seen && !addAccTouched && seen.acc) { $('addAcc').value = seen.acc; renderAddAcc(); renderCashHint(); }
+  }
+  let addAccTouched = false;
+  function previousHandEntry(name) {
+    const n = name.trim().toLowerCase();
+    let found = null;
+    S.tx.forEach((t) => { if (t.src === 'm' && t.t === 'Von Hand' && String(t.n).toLowerCase() === n && (!found || t.d >= found.d)) found = t; });
+    return found;
+  }
+  function fillAddNames() {
+    const count = {};
+    S.tx.forEach((t) => { if (t.src === 'm' && t.t === 'Von Hand' && t.n && t.a < 0) count[t.n] = (count[t.n] || 0) + 1; });
+    const box = $('addNameList');
+    box.textContent = '';
+    Object.keys(count).sort((a, b) => count[b] - count[a]).slice(0, 12).forEach((n) => { const o = document.createElement('option'); o.value = n; box.appendChild(o); });
   }
   // Account of the most recent entry made by hand, so the next one starts with the same card
   function lastHandAccount() {
@@ -3646,7 +4073,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       const b = el('button', 'chip', n);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(n.toLowerCase() === cur));
-      b.addEventListener('click', () => { $('addAcc').value = n; renderAddAcc(); renderCashHint(); });
+      b.addEventListener('click', () => { addAccTouched = true; $('addAcc').value = n; renderAddAcc(); renderCashHint(); });
       box.appendChild(b);
     });
     const acc = $('addAcc').value.trim();
@@ -3885,6 +4312,14 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     $('scopeSeg').hidden = !S.opts.partnerAccs.length;
     $$('#scopeSeg button').forEach((b) => b.setAttribute('aria-checked', String((b.getAttribute('data-scope') === 'home') === !!S.opts.household)));
   }
+  // Reminder to import again: the newest entry that came from a bank is more than a week old
+  function renderImportHint() {
+    let last = '';
+    S.tx.forEach((t) => { if (t.t !== 'Von Hand' && t.t !== 'Kassenbon' && t.d > last && t.d <= today()) last = t.d; });
+    const days = last ? daysBetween(last, today()) : 0;
+    $('importHint').hidden = !(last && days > 7);
+    if (last && days > 7) $('importHintText').textContent = 'Letzter Umsatz vom ' + fDate.format(fromISO(last)) + '. Zeit für einen neuen Import.';
+  }
   function renderBackupHint() {
     const last = lastBackup();
     const days = last ? daysBetween(last, today()) : Infinity;
@@ -3967,6 +4402,12 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     $('csvInput').click();
   }));
   $$('[data-action="add-tx"]').forEach((b) => b.addEventListener('click', openAdd));
+  $('budgetOfferBtn').addEventListener('click', suggestBudgets);
+  $('goalAdd').addEventListener('click', () => openGoal(null));
+  $('gsSave').addEventListener('click', saveGoal);
+  $('gsCancel').addEventListener('click', () => hideDialog($('goalSheet')));
+  $('gsDelete').addEventListener('click', deleteGoal);
+  $('shareBtn').addEventListener('click', shareSummary);
   $('densityBtn').addEventListener('click', () => { S.opts.simple = !isSimple(); save(); render(); });
   $('csvInput').addEventListener('change', (e) => {
     const files = Array.prototype.slice.call(e.target.files || []);
@@ -3985,6 +4426,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
   $('reviewBtn').addEventListener('click', openReview);
   $('revClose').addEventListener('click', () => hideDialog($('revSheet')));
   $('backupHint').addEventListener('click', () => setTab('data'));
+  $('importHint').addEventListener('click', () => setTab('data'));
   $('openHint').addEventListener('click', () => { S.filterCat = '_open'; S.query = ''; setTab('tx'); });
   $('catFilter').addEventListener('change', (e) => { S.filterCat = e.target.value; renderTx(); });
   $('accFilter').addEventListener('change', (e) => { S.filterAcc = e.target.value; renderTx(); });
@@ -4016,6 +4458,11 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
 
   // Sheets
   $('shDone').addEventListener('click', closeTxSheet);
+  $('shReceiptBtn').addEventListener('click', () => { $('receiptInput').value = ''; $('receiptInput').click(); });
+  $('receiptInput').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f && sheetTx) readReceipt(f, sheetTx); });
+  $('shUnsplit').addEventListener('click', () => { const t = sheetTx; if (!t) return; unsplit(t); save(); closeTxSheet(); render(); toast('Aufteilung aufgehoben'); });
+  $('rcApply').addEventListener('click', confirmReceipt);
+  $('rcCancel').addEventListener('click', () => { rcState = null; hideDialog($('receiptSheet')); });
   $('shDelete').addEventListener('click', deleteSheetTx);
   $('shEditSave').addEventListener('click', saveHandEdit);
   $('shRule').addEventListener('change', (e) => { $('shRuleKw').disabled = !e.target.checked; });
@@ -4024,7 +4471,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
   $$('#addSheet .seg button').forEach((b) => b.addEventListener('click', () => { addKind = b.getAttribute('data-kind'); addCatTouched = false; renderAddKind(); fillAddCats(); suggestAddCat(); renderCashHint(); }));
   $('addSave').addEventListener('click', saveAdd);
   $('addCancel').addEventListener('click', () => hideDialog($('addSheet')));
-  $('addAcc').addEventListener('input', () => { renderAddAcc(); renderCashHint(); });
+  $('addAcc').addEventListener('input', () => { addAccTouched = true; renderAddAcc(); renderCashHint(); });
   $('addName').addEventListener('input', suggestAddCat);
   $('addCat').addEventListener('change', () => { addCatTouched = true; });
   $('addCashOn').addEventListener('click', () => { setCashManual(true, false); renderCashHint(); fillAddCats(); });

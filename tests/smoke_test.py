@@ -111,6 +111,11 @@ def main():
             # Balances and Verfügbar
             page.click('#tab-overview')
             check('overview starts in the simple view', page.evaluate("() => document.body.classList.contains('simple') && !balCard.offsetParent && addFab.getClientRects().length > 0 && !!nowCard.offsetParent && !paydayCard.offsetParent"), page.evaluate("() => [document.body.className, !!balCard.offsetParent, addFab.getClientRects().length, !!nowCard.offsetParent, !!paydayCard.offsetParent]"))
+            offer = page.evaluate("() => ({ vis: !!budgetOffer.offsetParent, none: Object.keys(JSON.parse(localStorage.getItem('budget.data.v1')).budgets).length })")
+            check('budgets are offered when none exist yet', offer['vis'] and offer['none'] == 0, offer)
+            page.click('#budgetOfferBtn')
+            offer = page.evaluate("() => ({ vis: !!budgetOffer.offsetParent, some: Object.keys(JSON.parse(localStorage.getItem('budget.data.v1')).budgets).length })")
+            check('accepting the offer fills budgets and hides the offer', (not offer['vis']) and offer['some'] > 0, offer)
             page.click('#densityBtn')
             check('Mehr anzeigen opens the full view and it is remembered', page.evaluate("() => !document.body.classList.contains('simple') && !!balCard.offsetParent && densityBtn.textContent === 'Weniger anzeigen' && JSON.parse(localStorage.getItem('budget.data.v1')).opts.simple === false"))
             page.click('#balList .balrow:has-text("Sparkasse")')
@@ -212,6 +217,8 @@ def main():
             check('automatic debit warns about a shortfall by the configured day', abs(num(forecast['free']) + 23.45) < 0.005 and 'automatische Abbuchung' in forecast['warning'] and 'bis zum' in forecast['warning'] and re.search(day_re, forecast['warning']) and 'Rücklastschrift' in forecast['warning'], forecast)
             now = page.evaluate("() => ({ big: nowBig.textContent, free: paydayFree.textContent, status: nowStatus.textContent, bad: nowStatus.classList.contains('bad'), label: nowLabel.textContent })")
             check('headline card shows the money free until payday and warns when it is short', now['big'] == now['free'] and 'Aufpassen' in now['status'] and now['bad'] and 'zum Ausgeben' in now['label'], now)
+            cc = page.evaluate("() => ({ vis: !cardsCard.hidden, text: cardsList.textContent.replace(/\\s+/g, ' '), total: cardsTotal.textContent })")
+            check('credit card card shows what is left to pay and the debit date', cc['vis'] and 'American Express' in cc['text'] and '123,45' in cc['text'] and 'abgebucht' in cc['text'], cc)
 
             page.click('#tab-overview')
             pace = page.text_content('#paydayPace') or ''
@@ -514,6 +521,88 @@ def main():
             wide = page.evaluate("() => ({ doc: document.documentElement.scrollWidth, win: innerWidth, subs: subsCard.getBoundingClientRect().right, list: subsList.getBoundingClientRect().right, year: subsYear.getBoundingClientRect().right })")
             check('no horizontal overflow on the Budgets tab at 360 px', wide['doc'] <= wide['win'] and wide['list'] <= wide['subs'] + 0.5 and wide['year'] <= wide['subs'] + 0.5, wide)
             page.set_viewport_size({'width': 390, 'height': 844})
+
+            # Receipt: one supermarket payment is split into food and drugstore with a (synthetic) receipt PDF
+            import tempfile
+            rc_dir = tempfile.mkdtemp()
+            rc_pdf = os.path.join(rc_dir, 'bon.pdf')
+            rp = ctx.new_page()
+            rp.set_content('<html><body style="font-family:monospace;width:300px"><div>Beispielmarkt GmbH</div><div>12.11.2026 14:03</div>' +
+                ''.join('<div style="display:flex;justify-content:space-between"><span>%s</span><span>%s</span></div>' % (a, b2) for a, b2 in [
+                    ('BIO MILCH', '1,19 B'), ('BROT', '2,49 B'), ('TOMATEN', '3,40 B'), ('PREISVORTEIL', '-0,50'), ('SPUELMITTEL', '1,95 A'), ('ZAHNPASTA', '2,95 A'),
+                    ('SUMME EUR', '11,48')]) + '</body></html>')
+            rp.pdf(path=rc_pdf)
+            rp.close()
+            page.evaluate("""() => {
+                const now = new Date(); const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                const data = JSON.parse(localStorage.getItem('budget.data.v1'));
+                data.tx.push({ id: 'rc1', d: iso(now), a: -1148, n: 'Beispielmarkt Kartenzahlung', p: '', t: '', acc: 'Example Checking', c: 'lebensmittel', src: 'r', k: 'rc1key' });
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-tx')
+            page.fill('#q', 'Beispielmarkt')
+            page.wait_for_timeout(300)
+            page.click('#txList li button')
+            page.wait_for_selector('#txSheet[open]')
+            page.set_input_files('#receiptInput', rc_pdf)
+            page.wait_for_selector('#receiptSheet[open]', timeout=20000)
+            rc = page.evaluate("() => ({ items: rcList.children.length, sum: rcSum.textContent.replace(/\\s+/g, ' '), apply: !rcApply.disabled, note: !rcNote.hidden })")
+            check('receipt PDF is read: 5 articles, food and drugstore sums match', rc['items'] == 5 and '6,58' in rc['sum'] and '4,90' in rc['sum'] and rc['apply'] and not rc['note'], rc)
+            page.click('#rcApply')
+            page.wait_for_timeout(300)
+            sp = page.evaluate("() => JSON.parse(localStorage.getItem('budget.data.v1')).tx.filter((t) => t.id === 'rc1' || t.so === 'rc1').map((t) => [t.c, t.a, t.s0 || 0])")
+            check('payment is split into food and drugstore and the total stays the same', sorted(sp) == [['drogerie', -490, 0], ['lebensmittel', -658, -1148]] and sum(x[1] for x in sp) == -1148, sp)
+            page.fill('#q', 'Beispielmarkt')
+            page.wait_for_timeout(300)
+            page.click('#txList li button')
+            page.wait_for_selector('#txSheet[open]')
+            page.click('#shUnsplit')
+            page.wait_for_timeout(300)
+            sp = page.evaluate("() => JSON.parse(localStorage.getItem('budget.data.v1')).tx.filter((t) => t.id === 'rc1' || t.so === 'rc1').map((t) => [t.c, t.a])")
+            check('undoing the split restores the original payment', len(sp) == 1 and sp[0][1] == -1148, sp)
+            page.fill('#q', '')
+            page.click('#tab-overview')
+
+            # Import reminder, quick-add memory, savings goals and sharing
+            goal_date = (datetime.date.today() + datetime.timedelta(days=200)).isoformat()
+            page.evaluate("""() => {
+                const now = new Date(); const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                const ago = (n) => { const d = new Date(now); d.setDate(d.getDate() - n); return iso(d); };
+                const tx = [
+                    { id: 'qb1', d: ago(20), a: -2500, n: 'Example Shop', p: '', t: '', acc: 'Example Checking', c: 'shopping', src: 'r', k: 'qb1k' },
+                    { id: 'qa1', d: ago(1), a: -350, n: 'Baeckerei Test', p: '', t: 'Von Hand', acc: 'Klarna', c: 'familie', src: 'm', k: 'qa1k' }];
+                localStorage.setItem('budget.data.v1', JSON.stringify({ v: 1, tx: tx, budgets: {}, rules: [], cats: [], bal: { 'Example Checking': { d: ago(1), a: 100000 } }, opts: { cashManual: false, payday: false, cashSince: '', cardPaymentDays: {}, partnerAccs: [], household: false, expected: [] }, owner: '' }));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            hint = page.evaluate("() => ({ vis: !!importHint.offsetParent, text: importHintText.textContent })")
+            check('overview reminds to import when the newest bank entry is over a week old', hint['vis'] and 'Letzter Umsatz' in hint['text'], hint)
+            check('welcome shows three steps and the import guide has the banks', page.evaluate("() => document.querySelectorAll('#welcome .steps li').length === 3 && /Sparkasse/.test(importGuide.textContent) && /American Express/.test(importGuide.textContent)"))
+            page.click('#addFab')
+            page.wait_for_selector('#addSheet[open]')
+            page.fill('#addName', 'Baeckerei Test')
+            qa = page.evaluate("() => ({ cat: addCat.value, acc: addAcc.value, names: addNameList.children.length })")
+            check('quick-add remembers category and card of an earlier entry with the same name', qa['cat'] == 'familie' and qa['acc'] == 'Klarna' and qa['names'] >= 1, qa)
+            page.keyboard.press('Escape')
+            page.click('#tab-budgets')
+            page.click('#goalAdd')
+            page.wait_for_selector('#goalSheet[open]')
+            page.fill('#gsName', 'Urlaub')
+            page.fill('#gsTarget', '1200')
+            page.fill('#gsSaved', '200')
+            page.fill('#gsDate', goal_date)
+            page.click('#gsSave')
+            page.wait_for_timeout(300)
+            gl = page.evaluate("() => ({ list: goalsList.textContent.replace(/\\s+/g, ' '), ov: goalsOvList.textContent.replace(/\\s+/g, ' '), saved: JSON.parse(localStorage.getItem('budget.data.v1')).opts.goals })")
+            check('savings goal is saved, shows a monthly amount and appears on the overview', 'Urlaub' in gl['list'] and 'pro Monat' in gl['list'] and 'Urlaub' in gl['ov'] and gl['saved'] and gl['saved'][0]['a'] == 120000 and gl['saved'][0]['s'] == 20000, gl)
+            page.click('#tab-overview')
+            page.evaluate("() => { window.__shared = null; navigator.share = (d) => { window.__shared = d.text; return Promise.resolve(); }; }")
+            page.click('#shareBtn')
+            page.wait_for_timeout(200)
+            shared = page.evaluate("() => window.__shared")
+            check('Stand teilen sends a short text with the numbers and the goal', shared and 'Budget, Stand' in shared and 'Auf dem Konto' in shared and 'Sparziel Urlaub' in shared, shared)
 
             # Version shown and service worker registered
             note = page.text_content('#note')
