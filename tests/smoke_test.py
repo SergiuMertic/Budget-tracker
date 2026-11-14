@@ -604,6 +604,31 @@ def main():
             shared = page.evaluate("() => window.__shared")
             check('Stand teilen sends a short text with the numbers and the goal', shared and 'Budget, Stand' in shared and 'Auf dem Konto' in shared and 'Sparziel Urlaub' in shared, shared)
 
+            # Sheets close by tapping the dimmed area above them and by pulling them down
+            page.click('#tab-overview')
+            page.click('#addFab')
+            page.wait_for_selector('#addSheet[open]')
+            page.mouse.click(195, 20)
+            page.wait_for_timeout(300)
+            check('tapping the dimmed area closes a sheet', page.evaluate("() => !addSheet.open"))
+            page.click('#addFab')
+            page.wait_for_selector('#addSheet[open]')
+            page.evaluate("""() => {
+                const d = document.getElementById('addSheet');
+                const g = d.querySelector('.grab');
+                const r = g.getBoundingClientRect();
+                const mk = (type, y) => {
+                    const touch = new Touch({ identifier: 1, target: g, clientX: r.left + 20, clientY: y, pageX: r.left + 20, pageY: y });
+                    g.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [touch], targetTouches: type === 'touchend' ? [] : [touch], changedTouches: [touch] }));
+                };
+                mk('touchstart', r.top);
+                mk('touchmove', r.top + 40);
+                mk('touchmove', r.top + 160);
+                mk('touchend', r.top + 160);
+            }""")
+            page.wait_for_timeout(500)
+            check('pulling a sheet down closes it', page.evaluate("() => !addSheet.open && addSheet.style.transform === ''"))
+
             # The service worker file must exist, be non-empty and carry the same version as the app (an empty one breaks offline use)
             sw_text = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'sw.js')).read()
             m_sw = re.search(r"CACHE = 'budget-v(\d+)'", sw_text)
