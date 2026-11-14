@@ -604,6 +604,13 @@ def main():
             shared = page.evaluate("() => window.__shared")
             check('Stand teilen sends a short text with the numbers and the goal', shared and 'Budget, Stand' in shared and 'Auf dem Konto' in shared and 'Sparziel Urlaub' in shared, shared)
 
+            # The service worker file must exist, be non-empty and carry the same version as the app (an empty one breaks offline use)
+            sw_text = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'sw.js')).read()
+            m_sw = re.search(r"CACHE = 'budget-v(\d+)'", sw_text)
+            html_text = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'index.html')).read()
+            m_app = re.search(r"APP_VERSION = '(\d+)'", html_text)
+            check('sw.js is not empty and its cache version matches the app version', len(sw_text) > 500 and m_sw and m_app and m_sw.group(1) == m_app.group(1), (len(sw_text), m_sw and m_sw.group(1), m_app and m_app.group(1)))
+
             # Version shown and service worker registered
             note = page.text_content('#note')
             check('version shown at the bottom', 'Version' in note, note)
