@@ -616,6 +616,35 @@ def main():
             page.wait_for_timeout(300)
             sp = page.evaluate("() => JSON.parse(localStorage.getItem('budget.data.v1')).tx.filter((t) => t.id === 'rc2' || t.so === 'rc2').map((t) => [t.c, t.a, t.s0 || 0])")
             check('manual split stores food and drugstore and keeps the total', sorted(sp) == [['drogerie', -186, 0], ['lebensmittel', -440, -626]] and sum(x[1] for x in sp) == -626, sp)
+            # Electronics article is guessed as Elektronik, and every spending category can be chosen
+            el_pdf = os.path.join(rc_dir, 'elektro.pdf')
+            ep = ctx.new_page()
+            ep.set_content('<html><body style="font-family:monospace;width:300px"><div>Beispielmarkt GmbH</div>' +
+                ''.join('<div style="display:flex;justify-content:space-between"><span>%s</span><span>%s</span></div>' % (a, b2) for a, b2 in [('BIO MILCH', '1,19 B'), ('USB LADEKABEL', '7,99 A'), ('SUMME EUR', '9,18')]) + '</body></html>')
+            ep.pdf(path=el_pdf)
+            ep.close()
+            page.evaluate("""() => {
+                const now = new Date(); const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                const data = JSON.parse(localStorage.getItem('budget.data.v1'));
+                data.tx.push({ id: 'rc3', d: iso(now), a: -918, n: 'Elektromarkt Kartenzahlung', p: '', t: '', acc: 'Example Checking', c: 'lebensmittel', src: 'r', k: 'rc3key' });
+                localStorage.setItem('budget.data.v1', JSON.stringify(data));
+            }""")
+            page.reload()
+            page.wait_for_timeout(300)
+            page.click('#tab-tx')
+            page.fill('#q', 'Elektromarkt')
+            page.wait_for_timeout(300)
+            page.click('#txList li button')
+            page.wait_for_selector('#txSheet[open]')
+            page.set_input_files('#receiptInput', el_pdf)
+            page.wait_for_selector('#receiptSheet[open]', timeout=20000)
+            rc = page.evaluate("() => ({ guess: [...rcList.querySelectorAll('select')].map((x) => x.value), opts: [...rcList.querySelector('select').options].map((o) => o.textContent), sum: rcSum.textContent.replace(/\\s+/g, ' ') })")
+            check('USB cable is guessed as Elektronik and the sums match', rc['guess'] == ['lebensmittel', 'elektronik'] and '1,19' in rc['sum'] and '7,99' in rc['sum'] and 'Elektronik' in rc['sum'], rc)
+            check('receipt dropdown offers all spending categories', 'Freizeit & Sport' in rc['opts'] and 'Elektronik' in rc['opts'] and 'Kinder & Baby' in rc['opts'] and 'Sonstiges' in rc['opts'], rc['opts'])
+            page.click('#rcCancel')
+            page.wait_for_timeout(200)
+            page.keyboard.press('Escape')
+            page.wait_for_timeout(300)
             page.fill('#q', '')
             page.click('#tab-overview')
 

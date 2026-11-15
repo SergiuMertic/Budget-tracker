@@ -1091,7 +1091,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
 (function () {
   'use strict';
 
-  const APP_VERSION = '37';
+  const APP_VERSION = '38';
   const DATA = 'budget.data.v1';
 
   const $ = (id) => document.getElementById(id);
@@ -1130,6 +1130,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     shield: svg('<path d="M12 3l7 3v5.5c0 4.3-3 7.8-7 9.5-4-1.7-7-5.2-7-9.5V6z"/><path d="M9 12l2 2 4-4"/>'),
     phone: svg('<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18h2"/>'),
     play: svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10.2 9.2v5.6l4.6-2.8z"/>'),
+    laptop: svg('<rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M3 19h18"/>'),
     bag: svg('<path d="M5 8h14l-1.2 12.5H6.2z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/>'),
     gym: svg('<path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/>'),
     cash: svg('<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/>'),
@@ -1162,6 +1163,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     { id: 'handy', name: 'Handy & Internet', kind: 'out', color: '#1F9AA0', icon: 'phone' },
     { id: 'abos', name: 'Abos & Streaming', kind: 'out', color: '#B8428A', icon: 'play' },
     { id: 'shopping', name: 'Shopping', kind: 'out', color: '#C99A12', icon: 'bag' },
+    { id: 'elektronik', name: 'Elektronik', kind: 'out', color: '#4F6FA8', icon: 'laptop' },
     { id: 'freizeit', name: 'Freizeit & Sport', kind: 'out', color: '#23A06A', icon: 'gym' },
     { id: 'bargeld', name: 'Bargeld', kind: 'out', color: '#8C7A66', icon: 'cash' },
     { id: 'spenden', name: 'Spenden', kind: 'out', color: '#C2614A', icon: 'heart' },
@@ -1203,7 +1205,8 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     ['essen', '', 'LIEFERANDO', 'UBER EATS', 'WOLT', 'MCDONALDS', 'MC DONALDS', 'BURGER KING', 'KFC', 'SUBWAY', 'STARBUCKS', 'VAPIANO', 'NORDSEE', 'PIZZA', 'PIZZERIA', 'RESTAURANT', 'IMBISS', 'DOENER', 'KEBAB', 'GRILL', 'CAFE', 'BISTRO', 'SUSHI', 'DOMINOS', 'CALL A PIZZA', 'BACKWERK', 'RISTORANTE', 'TRATTORIA', 'OSTERIA', 'KEBAP', 'DOENERS', 'BURGER', 'BURGUER', 'SMASHBURGER', 'GELATO', 'EISCAFE', 'EISDIELE', 'TACO', 'KITCHEN', 'GASTRONOMIE', 'GASTRO', 'COFFEE', 'CHURRITO'],
     ['mobil', '', 'SHELL', 'ARAL', 'ESSO', 'JET', 'TOTALENERGIES', 'AVIA', 'AGIP', 'ENI', 'HEM', 'ORLEN', 'TANKSTELLE', 'STAR TANK', 'STAR STATION', 'ATU', 'A.T.U', 'WERKSTATT', 'REIFEN', 'PARKHAUS', 'PARKEN', 'PARKSCHEIN', 'EASYPARK', 'PAYBYPHONE', 'ADAC', 'TUEV', 'DEKRA', 'DB VERTRIEB', 'DEUTSCHE BAHN', 'DB FERNVERKEHR', 'DB REGIO', 'BOGESTRA', 'VRR', 'DSW21', 'DEUTSCHLANDTICKET', 'D TICKET', 'FLIXBUS', 'UBER', 'BOLT', 'SIXT', 'SHARE NOW', 'WASCHSTRASSE', 'AUTOWAESCHE', 'WASCHANLAGE', 'WASCHPARK', 'PRIMWASH', 'PACE TELEMATICS', 'TOTAL SERVICE', 'AUTODOC', 'MR WASH', 'CARWASH', 'CAR WASH', 'PARKING', 'AUTOPARK', 'PACE PAY', 'IMOCARWASH', 'VANMOOF'],
     ['versicherung', '', 'VERSICHERUNG', 'VERSICHERUNGEN', 'RECHTSSCHUTZ', 'ADAM RIESE', 'BAVARIADIREKT', 'HUK', 'HUK24', 'HUK COBURG', 'ALLIANZ', 'ERGO', 'AXA', 'R+V', 'DEVK', 'GENERALI', 'COSMOSDIREKT', 'HANSEMERKUR', 'BARMENIA', 'GOTHAER', 'SIGNAL IDUNA', 'WGV', 'VHV', 'ZURICH', 'HDI', 'ARAG', 'PROVINZIAL', 'LVM', 'NUERNBERGER', 'DEBEKA', 'CONTINENTALE'],
-    ['shopping', '', 'AMAZON', 'AMZN', 'ZALANDO', 'OTTO GMBH', 'OTTO.DE', 'EBAY', 'ABOUT YOU', 'H&M', 'H+M', 'PRIMARK', 'C&A', 'ZARA', 'DEICHMANN', 'MEDIAMARKT', 'MEDIA MARKT', 'SATURN', 'TEMU', 'SHEIN', 'ALIEXPRESS', 'IKEA', 'OBI', 'BAUHAUS', 'HORNBACH', 'TOOM', 'HAGEBAU', 'ACTION', 'TEDI', 'KIK', 'WOOLWORTH', 'DECATHLON', 'THALIA', 'CYBERPORT', 'NOTEBOOKSBILLIGER', 'ALTERNATE', 'JYSK', 'POCO', 'ROLLER', 'KLARNA', 'OTTO', 'OTTO PAYMENTS', 'TK MAXX', 'TKMAXX', 'FASHION ID', 'TCHIBO', 'HEMA', 'PULL & BEAR', 'PULL&BEAR', 'CARPISA', 'OVS', 'ORIGINAL MARINES', 'EL CORTE INGLES', 'STRENE GRENE', 'FLYING TIGER', 'SMYTHS', 'BABYPARK', 'KIABI', 'HOME24', 'BLUME 2000', 'BLUME2000', 'BLUMEN', 'GARTENCENTER', 'DEHNER', 'ETSY', 'NIKE', 'NIKEPOS', 'S OLIVER', 'S.OLIVER', 'EUROSHOP', 'MISTERSPEX'],
+    ['elektronik', '', 'MEDIAMARKT', 'MEDIA MARKT', 'SATURN', 'CYBERPORT', 'NOTEBOOKSBILLIGER', 'ALTERNATE', 'CONRAD', 'EURONICS', 'COMPUTER UNIVERSE', 'REICHELT', 'ELV ELEKTRONIK', 'ALZA', 'ELEKTRONIK'],
+    ['shopping', '', 'AMAZON', 'AMZN', 'ZALANDO', 'OTTO GMBH', 'OTTO.DE', 'EBAY', 'ABOUT YOU', 'H&M', 'H+M', 'PRIMARK', 'C&A', 'ZARA', 'DEICHMANN', 'TEMU', 'SHEIN', 'ALIEXPRESS', 'IKEA', 'OBI', 'BAUHAUS', 'HORNBACH', 'TOOM', 'HAGEBAU', 'ACTION', 'TEDI', 'KIK', 'WOOLWORTH', 'DECATHLON', 'THALIA', 'JYSK', 'POCO', 'ROLLER', 'KLARNA', 'OTTO', 'OTTO PAYMENTS', 'TK MAXX', 'TKMAXX', 'FASHION ID', 'TCHIBO', 'HEMA', 'PULL & BEAR', 'PULL&BEAR', 'CARPISA', 'OVS', 'ORIGINAL MARINES', 'EL CORTE INGLES', 'STRENE GRENE', 'FLYING TIGER', 'SMYTHS', 'BABYPARK', 'KIABI', 'HOME24', 'BLUME 2000', 'BLUME2000', 'BLUMEN', 'GARTENCENTER', 'DEHNER', 'ETSY', 'NIKE', 'NIKEPOS', 'S OLIVER', 'S.OLIVER', 'EUROSHOP', 'MISTERSPEX'],
     ['freizeit', '', 'MCFIT', 'MY GYM', 'MYGYM', 'GYM', 'FITNESS', 'FITNESSSTUDIO', 'CLEVER FIT', 'FITX', 'URBAN SPORTS', 'JOHN REED', 'INJOY', 'KINO', 'CINEMAXX', 'UCI', 'CINESTAR', 'EVENTIM', 'TICKETMASTER', 'BOWLING', 'SCHWIMMBAD', 'FREIBAD', 'MUSEUM', 'ZOO', 'THEATER', 'ESN', 'ESN.COM'],
     ['bargeld', '-', 'VIACASHWITHDRAWAL', 'GELDAUTOMAT', 'BARGELDAUSZAHLUNG', 'BARGELD', 'BARAUSZAHLUNG', 'AUSZAHLUNG GELDAUTOMAT', 'CASH WITHDRAWAL', 'ATM', 'BARGELDABHEBUNG'],
     ['spenden', '', 'SPENDE', 'SPENDEN', 'KOLLEKTE', 'KIRCHE', 'KIRCHENGEMEINDE', 'ZEHNTE', 'UNICEF', 'CARITAS', 'DIAKONIE', 'WWF', 'GREENPEACE', 'AERZTE OHNE GRENZEN', 'SOS KINDERDORF'],
@@ -2234,9 +2237,11 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
   const rcWords = (list) => new RegExp('(?:^|[^A-Z0-9])(?:' + list.map(esc).join('|') + ')');
   const RC_DROGERIE = rcWords(['ZAHNPASTA', 'ZAHNBUERSTE', 'ZAHNSEIDE', 'MUNDSPUELUNG', 'SHAMPOO', 'DUSCH', 'DEO', 'SEIFE', 'WINDEL', 'FEUCHTTUECHER', 'TAMPON', 'DAMENBINDEN', 'SLIPEINLAGEN', 'TOILETTENPAPIER', 'KLOPAPIER', 'TOILETTENP', 'TASCHENTUECHER', 'KOSMETIKTUECHER', 'KUECHENROLLE', 'KUECHENTUCH', 'SPUELMITTEL', 'SPUELMASCHINEN', 'TABS', 'WASCHMITTEL', 'WEICHSPUELER', 'REINIGER', 'ENTKALKER', 'MUELLBEUTEL', 'MUELLSAECKE', 'GEFRIERBEUTEL', 'ALUFOLIE', 'BACKPAPIER', 'FRISCHHALTEFOLIE', 'PFLASTER', 'MULTIVITAMIN', 'HANDCREME', 'GESICHTSCREME', 'KOERPERLOTION', 'BODYLOTION', 'SONNENCREME', 'RASIER', 'HAARSPRAY', 'HAARFARBE', 'WATTEPADS', 'WATTE', 'ZAHNCREME', 'LIPPENPFLEGE', 'KONDOME', 'SCHWAMM', 'SPUELBUERSTE']);
   const RC_SHOP = rcWords(['BATTERIE', 'BATTERIEN', 'GLUEHBIRNE', 'LAMPE', 'KERZE', 'KERZEN', 'BLUMEN', 'PFLANZE', 'TRAGETASCHE', 'TRAGETUETE', 'PAPIERTASCHE', 'SOCKEN', 'STRUMPFHOSE', 'SPIELZEUG', 'ZEITSCHRIFT', 'ZEITUNG', 'HUNDEFUTTER', 'KATZENFUTTER', 'KATZENSTREU', 'TIERNAHRUNG', 'GESCHENK', 'GRUSSKARTE', 'GRUESSKARTE', 'TASSE', 'BECHER', 'TOPF', 'PFANNE']);
+  const RC_ELEKTRO = rcWords(['LADEKABEL', 'USB', 'HDMI', 'DATENKABEL', 'VERLAENGERUNGSKABEL', 'LADEGERAET', 'NETZTEIL', 'KOPFHOERER', 'EARPODS', 'HEADSET', 'LAUTSPRECHER', 'BLUETOOTH', 'SPEICHERKARTE', 'MICROSD', 'SD KARTE', 'TASTATUR', 'ADAPTER', 'STECKDOSE', 'STECKERLEISTE', 'POWERBANK', 'AKKU', 'HANDYHUELLE', 'SCHUTZFOLIE', 'LEUCHTMITTEL', 'FERNBEDIENUNG', 'ROUTER', 'WEBCAM', 'FESTPLATTE', 'SSD', 'SMARTWATCH', 'DRUCKERPATRONE', 'TONER', 'ELEKTRO']);
   function receiptClass(name) {
     const n = normText(name);
     if (RC_DROGERIE.test(n)) return 'drogerie';
+    if (RC_ELEKTRO.test(n)) return 'elektronik';
     if (RC_SHOP.test(n)) return 'shopping';
     return 'lebensmittel';
   }
@@ -2480,13 +2485,17 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     $('spFood').value = '';
     const sel = $('spRest');
     sel.textContent = '';
-    RC_CHOICES.filter((id) => id !== 'lebensmittel').forEach((id) => { const o = el('option', null, CAT[id].name); o.value = id; sel.appendChild(o); });
+    rcChoices().filter((id) => id !== 'lebensmittel').forEach((id) => { const o = el('option', null, CAT[id].name); o.value = id; sel.appendChild(o); });
     sel.value = 'drogerie';
     renderManualSplit();
     showDialog($('splitSheet'));
   }
   let rcState = null;
-  const RC_CHOICES = ['lebensmittel', 'drogerie', 'shopping', 'sonstiges'];
+  // The four usual ones first, then every other spending category (own ones too); not accounts, cash or card repayments
+  function rcChoices() {
+    const first = ['lebensmittel', 'drogerie', 'elektronik', 'shopping'], skip = { bargeld: 1, eigene: 1, kredit: 1, sonstiges: 1 };
+    return first.concat(CATS.filter((c) => c.kind === 'out' && first.indexOf(c.id) < 0 && !skip[c.id]).map((c) => c.id), ['sonstiges']);
+  }
   function openReceipt(tx, parsed, viaOcr) {
     rcState = { tx: tx, items: parsed.items, total: parsed.total };
     $('rcIntro').textContent = viaOcr
@@ -2500,7 +2509,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
       li.appendChild(el('span', 'ra num', fmt(it.a)));
       const sel = el('select');
       sel.setAttribute('aria-label', 'Kategorie für ' + it.n);
-      RC_CHOICES.forEach((id) => { const o = el('option', null, CAT[id].name); o.value = id; if (id === it.c) o.selected = true; sel.appendChild(o); });
+      rcChoices().forEach((id) => { const o = el('option', null, CAT[id].name); o.value = id; if (id === it.c) o.selected = true; sel.appendChild(o); });
       sel.addEventListener('change', () => { it.c = sel.value; renderReceiptSummary(); });
       li.appendChild(sel);
       list.appendChild(li);
@@ -2517,7 +2526,7 @@ body.simple .hero-month { padding-top: 0; border-top: 0; }
     const groups = receiptGroups(), paid = -rcState.tx.a, ul = $('rcSum');
     ul.textContent = '';
     const sum = rcState.items.reduce((m, it) => m + it.a, 0);
-    RC_CHOICES.filter((id) => groups[id]).forEach((id) => {
+    rcChoices().filter((id) => groups[id]).forEach((id) => {
       const li = el('li'), row = el('div', 'balrow');
       row.appendChild(el('span', 'bn', CAT[id].name));
       row.appendChild(el('span', 'ba num', fmt(groups[id])));
